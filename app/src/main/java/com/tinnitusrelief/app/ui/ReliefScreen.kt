@@ -88,13 +88,7 @@ fun ReliefScreen(
         modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.weight(0.7f))
-        Text(
-            stringResource(R.string.relief_label).uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = extra.muted,
-        )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.weight(0.8f))
         AnimatedContent(
             targetState = title,
             transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(250)) },
@@ -102,7 +96,7 @@ fun ReliefScreen(
         ) { name ->
             Text(
                 name,
-                style = MaterialTheme.typography.displaySmall,
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -139,17 +133,7 @@ fun ReliefScreen(
             )
             Pill(icon = ReliefIcons.Library, text = stringResource(R.string.more_sounds), onClick = onOpenSounds)
         }
-        Spacer(Modifier.height(14.dp))
-        Text(
-            stringResource(R.string.open_lab),
-            style = MaterialTheme.typography.labelLarge,
-            color = extra.muted,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(role = Role.Button, onClick = onOpenLab)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-        )
-        Spacer(Modifier.weight(0.35f))
+        Spacer(Modifier.weight(0.4f))
     }
 }
 

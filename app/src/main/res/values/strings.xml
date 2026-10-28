@@ -185,4 +185,9 @@
     <string name="settings_battery_body">Sound keeps playing with the screen locked. The app uses no network and sleeps completely when paused. On Samsung phones, if playback stops after a long time, set Settings → Apps → Tinnitus Relief → Battery → Unrestricted.</string>
     <string name="settings_research_title">About the research</string>
     <string name="settings_research_body">Relief sounds mask tinnitus while they play. The Acoustic Lab adds experimental methods from published studies: DFCRS-inspired band enhancement (Fudan University, 2025), notched sound (Okamoto et al., 2010) and narrow-band noise. In the largest trial (MOST, 2025) the DFCRS group improved by about 4 points more than plain music on a 100-point scale, which is less than the 7 points usually considered clinically meaningful. Complete disappearance of tinnitus was rare. The app does not claim to cure tinnitus.</string>
+    <string name="lab_tests">Tests</string>
+    <string name="rt_short">Before, after and 5 minutes later</string>
+    <string name="ri_short">60 seconds of noise at your pitch</string>
+    <string name="progress_short">Daily rating, chart and all entries</string>
+    <string name="settings_info_header">Information</string>
 </resources>

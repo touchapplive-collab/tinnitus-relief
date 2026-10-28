@@ -1,6 +1,10 @@
 package com.tinnitusrelief.app.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -9,9 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 
 /** Extra semantic colours that Material's scheme doesn't name. */
 @Immutable
@@ -42,6 +43,7 @@ private val Dark = darkColorScheme(
     secondaryContainer = Color(0xFF1E2B2C),
     onSecondaryContainer = Color(0xFFCFE6E1),
     outline = Color(0xFF2A3437),
+    outlineVariant = Color(0xFF1F282B),
     error = Color(0xFFF0A08A),
 )
 
@@ -60,27 +62,31 @@ private val Light = lightColorScheme(
     secondaryContainer = Color(0xFFDCE8E5),
     onSecondaryContainer = Color(0xFF173A35),
     outline = Color(0xFFD3D9D7),
+    outlineVariant = Color(0xFFDDE2E0),
     error = Color(0xFFB24A2E),
 )
 
-private val type = Typography(
-    displaySmall = TextStyle(fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 46.sp, letterSpacing = (-0.8).sp),
-    headlineSmall = TextStyle(fontWeight = FontWeight.Normal, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.3).sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 24.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 21.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 2.sp),
-)
+/** Stock Material 3 type scale on the system font (One UI Sans on Samsung, Roboto elsewhere). */
+private val type = Typography()
 
 @Composable
 fun ReliefTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val extra = if (dark) {
-        ReliefColors(Color(0xFF7E8A88), Color(0xFF1F282B), Color(0xFF9CCFC6), Color(0xFFF0A08A))
-    } else {
-        ReliefColors(Color(0xFF6B7573), Color(0xFFDDE2E0), Color(0xFF2E6F67), Color(0xFFB24A2E))
+    val context = LocalContext.current
+    // Material You: on Android 12+ the colours come from the user's wallpaper (One UI / Pixel),
+    // so the app looks like part of the phone. Older phones use the built-in calm palette.
+    val scheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        dark -> Dark
+        else -> Light
     }
+    val extra = ReliefColors(
+        muted = scheme.onSurfaceVariant,
+        hairline = scheme.outlineVariant,
+        glow = scheme.primary,
+        warn = scheme.error,
+    )
     androidx.compose.runtime.CompositionLocalProvider(LocalReliefColors provides extra) {
-        MaterialTheme(colorScheme = if (dark) Dark else Light, typography = type, content = content)
+        MaterialTheme(colorScheme = scheme, typography = type, content = content)
     }
 }

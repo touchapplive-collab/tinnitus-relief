@@ -183,4 +183,9 @@
     <string name="rec_relief">Test olakšanja</string>
     <string name="rec_ri">Rezidualna inhibicija</string>
     <string name="rec_daily">Dnevna ocena</string>
+    <string name="lab_tests">Testovi</string>
+    <string name="rt_short">Pre, posle i 5 minuta kasnije</string>
+    <string name="ri_short">60 sekundi šuma na tvojoj visini</string>
+    <string name="progress_short">Dnevna ocena, grafikon i svi unosi</string>
+    <string name="settings_info_header">Informacije</string>
 </resources>

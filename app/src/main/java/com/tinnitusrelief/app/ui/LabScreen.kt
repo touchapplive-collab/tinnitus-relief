@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,13 +40,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
 import com.tinnitusrelief.app.dsp.AcousticMode
-import com.tinnitusrelief.app.dsp.ResponseRecord
 import com.tinnitusrelief.app.dsp.SessionLimits
 import com.tinnitusrelief.app.engine.LabActivity
 import com.tinnitusrelief.app.ui.theme.LocalReliefColors
 import kotlin.math.roundToInt
 
-enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, RI, RELIEF, HISTORY }
+enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, ENGINE, RI, RELIEF, HISTORY }
 
 @Composable
 fun LabScreen(graph: AppGraph) {
@@ -59,38 +59,47 @@ fun LabScreen(graph: AppGraph) {
         LabPage.MAIN -> LabMain(graph) { page = it }
         LabPage.PITCH_GUIDED -> GuidedPitchPage(graph, back)
         LabPage.PITCH_MANUAL -> ManualPitchPage(graph, back)
+        LabPage.ENGINE -> EnginePage(graph, back)
         LabPage.RI -> RiTestPage(graph, back)
         LabPage.RELIEF -> ReliefTestPage(graph, back)
         LabPage.HISTORY -> HistoryPage(graph, back)
     }
 }
 
-/** Scrollable page body shared by all Lab pages. */
+/** Large native title used at the top of each tab. */
+@Composable
+fun ScreenTitle(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.headlineMedium,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
+    )
+}
+
+/** Scrollable body for Lab sub-pages: back arrow + title, then content with page margins. */
 @Composable
 fun LabPageColumn(title: String?, onBack: (() -> Unit)?, content: @Composable () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         if (onBack != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
-                if (title != null) Text(title, style = MaterialTheme.typography.headlineSmall)
+                if (title != null) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
             }
         }
-        content()
-        Spacer(Modifier.height(24.dp))
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            content()
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }
 
 @Composable
 private fun LabIntro(onAccept: () -> Unit) {
     var checked by remember { mutableStateOf(false) }
-    LabPageColumn(null, null) {
-        Eyebrow(stringResource(R.string.lab_experimental), LocalReliefColors.current.warn)
-        Text(stringResource(R.string.tab_lab), style = MaterialTheme.typography.displaySmall)
-        Body(stringResource(R.string.lab_intro))
-        ReliefCard {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ScreenTitle(stringResource(R.string.tab_lab))
+        Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Body(stringResource(R.string.lab_intro))
             Text(stringResource(R.string.lab_ack_title), style = MaterialTheme.typography.titleMedium)
             Body(stringResource(R.string.lab_ack_body))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -102,123 +111,136 @@ private fun LabIntro(onAccept: () -> Unit) {
     }
 }
 
+/** The Lab home: one clean list; every tool opens its own page. */
 @Composable
 private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
     val pitch by graph.pitch.collectAsStateWithLifecycle()
     val lab by graph.lab.collectAsStateWithLifecycle()
+    val state by graph.sessions.state.collectAsStateWithLifecycle()
+    val noPitch = stringResource(R.string.pitch_not_set)
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ScreenTitle(stringResource(R.string.tab_lab))
+        Text(
+            stringResource(R.string.lab_experimental),
+            style = MaterialTheme.typography.bodyMedium,
+            color = LocalReliefColors.current.warn,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+
+        if (state?.activity == LabActivity.SESSION) {
+            ListRow(
+                title = stringResource(R.string.session_running, countdown(state?.endsAtElapsed)),
+                subtitle = state?.label,
+                icon = ReliefIcons.Wave,
+                onClick = { open(LabPage.ENGINE) },
+            )
+        }
+
+        ListHeader(stringResource(R.string.pitch_title))
+        ListRow(stringResource(R.string.pitch_guided), subtitle = pitch?.let { formatHz(it) } ?: noPitch, icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_GUIDED) })
+        ListRow(stringResource(R.string.pitch_manual), icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_MANUAL) })
+
+        ListHeader(stringResource(R.string.engine_title))
+        ListRow(
+            graph.modeLabel(lab.mode),
+            subtitle = if (pitch == null) stringResource(R.string.session_needs_pitch) else "${lab.minutes} min",
+            icon = ReliefIcons.Wave,
+            onClick = { open(LabPage.ENGINE) },
+        )
+
+        ListHeader(stringResource(R.string.lab_tests))
+        ListRow(stringResource(R.string.rt_title), subtitle = stringResource(R.string.rt_short), onClick = { open(LabPage.RELIEF) })
+        ListRow(
+            stringResource(R.string.ri_title),
+            subtitle = if (pitch == null) stringResource(R.string.session_needs_pitch) else stringResource(R.string.ri_short),
+            onClick = if (pitch != null) ({ open(LabPage.RI) }) else null,
+        )
+
+        ListHeader(stringResource(R.string.progress_title))
+        ListRow(stringResource(R.string.history_title), subtitle = stringResource(R.string.progress_short), onClick = { open(LabPage.HISTORY) })
+
+        Muted(stringResource(R.string.lab_disclaimer), Modifier.padding(20.dp))
+    }
+}
+
+/** The acoustic engine on its own page: mode, source, parameters, volume, length, start. */
+@Composable
+fun EnginePage(graph: AppGraph, onBack: () -> Unit) {
+    val pitch by graph.pitch.collectAsStateWithLifecycle()
+    val lab by graph.lab.collectAsStateWithLifecycle()
     val sounds by graph.sounds.collectAsStateWithLifecycle()
     val state by graph.sessions.state.collectAsStateWithLifecycle()
-    val records by graph.tracker.records.collectAsStateWithLifecycle()
-    val extra = LocalReliefColors.current
 
-    LabPageColumn(null, null) {
-        Eyebrow(stringResource(R.string.lab_experimental), extra.warn)
-        Text(stringResource(R.string.tab_lab), style = MaterialTheme.typography.displaySmall)
+    LabPageColumn(stringResource(R.string.engine_title), onBack) {
+        ChoiceRow(AcousticMode.entries, lab.mode, { graph.modeLabel(it) }) { m -> graph.updateLab { it.copy(mode = m) } }
+        Body(stringResource(modeDescription(lab.mode)))
+        EvidenceTag(lab.mode.evidence, stringResource(R.string.evidence_published), stringResource(R.string.evidence_generator))
 
-        // ---------- pitch ----------
-        ReliefCard {
-            Eyebrow(stringResource(R.string.pitch_title))
-            Text(pitch?.let { formatHz(it) } ?: stringResource(R.string.pitch_not_set), style = MaterialTheme.typography.headlineSmall)
-            Muted(stringResource(R.string.pitch_disclaimer))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = { open(LabPage.PITCH_GUIDED) }) { Text(stringResource(R.string.pitch_guided)) }
-                OutlinedButton(onClick = { open(LabPage.PITCH_MANUAL) }) { Text(stringResource(R.string.pitch_manual)) }
+        val bands = pitch?.let { lab.bands(it) }.orEmpty()
+        if (bands.isNotEmpty()) ResponseCurve(bands, pitch, lab.transitionOctaves)
+
+        if (lab.mode.usesSource) {
+            HorizontalDivider(color = LocalReliefColors.current.hairline)
+            Text(stringResource(R.string.engine_source), style = MaterialTheme.typography.titleMedium)
+            ChoiceRow(sounds.map { it.id }, lab.sourceId, { id -> sounds.firstOrNull { it.id == id }?.name ?: id }) { id ->
+                graph.updateLab { it.copy(sourceId = id) }
             }
+            Muted(stringResource(R.string.engine_source_hint))
         }
 
-        // ---------- acoustic engine ----------
-        ReliefCard {
-            Eyebrow(stringResource(R.string.engine_title))
-            ChoiceRow(AcousticMode.entries, lab.mode, { graph.modeLabel(it) }) { m -> graph.updateLab { it.copy(mode = m) } }
-            EvidenceTag(lab.mode.evidence, stringResource(R.string.evidence_published), stringResource(R.string.evidence_generator))
-            Body(stringResource(modeDescription(lab.mode)))
-
-            if (lab.mode.usesSource) {
-                Text(stringResource(R.string.engine_source), style = MaterialTheme.typography.titleMedium)
-                ChoiceRow(sounds.map { it.id }, lab.sourceId, { id -> sounds.firstOrNull { it.id == id }?.name ?: id }) { id ->
-                    graph.updateLab { it.copy(sourceId = id) }
-                }
-                Muted(stringResource(R.string.engine_source_hint))
+        when (lab.mode) {
+            AcousticMode.DFCRS_INSPIRED -> LabeledSlider(
+                stringResource(R.string.param_band_gain), "%.0f dB".format(lab.bandGainDb),
+                lab.bandGainDb.toFloat(), { v -> graph.updateLab { it.copy(bandGainDb = v.roundToInt().toDouble()) } }, 0f..10f, 9,
+            )
+            AcousticMode.CUSTOM_FILTER -> {
+                LabeledSlider(stringResource(R.string.param_offset), "%+.2f oct".format(lab.customOffsetOctaves),
+                    lab.customOffsetOctaves.toFloat(), { v -> graph.updateLab { it.copy(customOffsetOctaves = v.toDouble()) } }, -2f..2f)
+                LabeledSlider(stringResource(R.string.param_width), "%.2f oct".format(lab.customWidthOctaves),
+                    lab.customWidthOctaves.toFloat(), { v -> graph.updateLab { it.copy(customWidthOctaves = v.toDouble()) } }, (1f / 12)..2f)
+                LabeledSlider(stringResource(R.string.param_gain), "%+.0f dB".format(lab.customGainDb),
+                    lab.customGainDb.toFloat(), { v -> graph.updateLab { it.copy(customGainDb = v.roundToInt().toDouble()) } }, -40f..10f)
             }
-            val bands = pitch?.let { lab.bands(it) }.orEmpty()
-            if (bands.isNotEmpty()) ResponseCurve(bands, pitch, lab.transitionOctaves)
-
-            when (lab.mode) {
-                AcousticMode.DFCRS_INSPIRED -> LabeledSlider(
-                    stringResource(R.string.param_band_gain), "%.0f dB".format(lab.bandGainDb),
-                    lab.bandGainDb.toFloat(), { v -> graph.updateLab { it.copy(bandGainDb = v.roundToInt().toDouble()) } }, 0f..10f, 9,
-                )
-                AcousticMode.CUSTOM_FILTER -> {
-                    LabeledSlider(stringResource(R.string.param_offset), "%+.2f oct".format(lab.customOffsetOctaves),
-                        lab.customOffsetOctaves.toFloat(), { v -> graph.updateLab { it.copy(customOffsetOctaves = v.toDouble()) } }, -2f..2f)
-                    LabeledSlider(stringResource(R.string.param_width), "%.2f oct".format(lab.customWidthOctaves),
-                        lab.customWidthOctaves.toFloat(), { v -> graph.updateLab { it.copy(customWidthOctaves = v.toDouble()) } }, (1f / 12)..2f)
-                    LabeledSlider(stringResource(R.string.param_gain), "%+.0f dB".format(lab.customGainDb),
-                        lab.customGainDb.toFloat(), { v -> graph.updateLab { it.copy(customGainDb = v.roundToInt().toDouble()) } }, -40f..10f)
-                }
-                AcousticMode.AM_TONE -> {
-                    LabeledSlider(stringResource(R.string.param_rate), "%.1f Hz".format(lab.amRateHz),
-                        lab.amRateHz.toFloat(), { v -> graph.updateLab { it.copy(amRateHz = v.toDouble()) } }, 0.5f..20f)
-                    LabeledSlider(stringResource(R.string.param_depth), "${(lab.amDepth * 100).roundToInt()} %",
-                        lab.amDepth, { v -> graph.updateLab { it.copy(amDepth = v) } })
-                }
-                AcousticMode.FM_TONE -> {
-                    LabeledSlider(stringResource(R.string.param_rate), "%.1f Hz".format(lab.fmRateHz),
-                        lab.fmRateHz.toFloat(), { v -> graph.updateLab { it.copy(fmRateHz = v.toDouble()) } }, 0.5f..20f)
-                    LabeledSlider(stringResource(R.string.param_deviation), "%.0f cents".format(lab.fmCents),
-                        lab.fmCents.toFloat(), { v -> graph.updateLab { it.copy(fmCents = v.roundToInt().toDouble()) } }, 0f..300f)
-                }
-                else -> Unit
+            AcousticMode.AM_TONE -> {
+                LabeledSlider(stringResource(R.string.param_rate), "%.1f Hz".format(lab.amRateHz),
+                    lab.amRateHz.toFloat(), { v -> graph.updateLab { it.copy(amRateHz = v.toDouble()) } }, 0.5f..20f)
+                LabeledSlider(stringResource(R.string.param_depth), "${(lab.amDepth * 100).roundToInt()} %",
+                    lab.amDepth, { v -> graph.updateLab { it.copy(amDepth = v) } })
             }
-
-            LabeledSlider(stringResource(R.string.param_volume), "${(lab.volume * 100).roundToInt()}",
-                lab.volume, { v -> graph.updateLab { it.copy(volume = v) } })
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.param_mix_with_masker), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Switch(checked = lab.mixWithMasker, onCheckedChange = { c -> graph.updateLab { it.copy(mixWithMasker = c) } })
+            AcousticMode.FM_TONE -> {
+                LabeledSlider(stringResource(R.string.param_rate), "%.1f Hz".format(lab.fmRateHz),
+                    lab.fmRateHz.toFloat(), { v -> graph.updateLab { it.copy(fmRateHz = v.toDouble()) } }, 0.5f..20f)
+                LabeledSlider(stringResource(R.string.param_deviation), "%.0f cents".format(lab.fmCents),
+                    lab.fmCents.toFloat(), { v -> graph.updateLab { it.copy(fmCents = v.roundToInt().toDouble()) } }, 0f..300f)
             }
-            Text(stringResource(R.string.param_session_length), style = MaterialTheme.typography.bodyMedium)
-            ChoiceRow(SessionLimits.OPTIONS_MINUTES, lab.minutes, { "$it min" }) { m -> graph.updateLab { it.copy(minutes = m) } }
-
-            val running = state?.activity == LabActivity.SESSION
-            if (running) {
-                Text(stringResource(R.string.session_running, countdown(state?.endsAtElapsed)), style = MaterialTheme.typography.titleMedium)
-                OutlinedButton(onClick = { graph.stopLabSession() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.session_stop)) }
-            } else {
-                Button(
-                    onClick = { graph.startLabSession() },
-                    enabled = pitch != null && state == null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.session_start)) }
-                if (pitch == null) Muted(stringResource(R.string.session_needs_pitch))
-            }
-            Muted(stringResource(R.string.session_safety))
+            else -> Unit
         }
 
-        // ---------- tests ----------
-        ReliefCard {
-            Eyebrow(stringResource(R.string.ri_title))
-            Body(stringResource(R.string.ri_card_body))
-            OutlinedButton(onClick = { open(LabPage.RI) }, enabled = pitch != null) { Text(stringResource(R.string.ri_open)) }
+        HorizontalDivider(color = LocalReliefColors.current.hairline)
+        LabeledSlider(stringResource(R.string.param_volume), "${(lab.volume * 100).roundToInt()}",
+            lab.volume, { v -> graph.updateLab { it.copy(volume = v) } })
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.param_mix_with_masker), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Switch(checked = lab.mixWithMasker, onCheckedChange = { c -> graph.updateLab { it.copy(mixWithMasker = c) } })
         }
-        ReliefCard {
-            Eyebrow(stringResource(R.string.rt_title))
-            Body(stringResource(R.string.rt_card_body))
-            OutlinedButton(onClick = { open(LabPage.RELIEF) }) { Text(stringResource(R.string.rt_open)) }
-        }
+        Text(stringResource(R.string.param_session_length), style = MaterialTheme.typography.bodyLarge)
+        ChoiceRow(SessionLimits.OPTIONS_MINUTES, lab.minutes, { "$it min" }) { m -> graph.updateLab { it.copy(minutes = m) } }
 
-        // ---------- progress ----------
-        ReliefCard {
-            Eyebrow(stringResource(R.string.progress_title))
-            val daily = records.filterIsInstance<ResponseRecord.Daily>().sortedBy { it.day }
-            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-            Text(stringResource(R.string.progress_question), style = MaterialTheme.typography.titleMedium)
-            RatingPicker(daily.lastOrNull { it.day == today }?.rating) { graph.addDaily(it) }
-            if (daily.size >= 2) DailyChart(daily.takeLast(90).map { it.rating })
-            Muted(stringResource(R.string.progress_hint))
-            OutlinedButton(onClick = { open(LabPage.HISTORY) }) { Text(stringResource(R.string.history_open)) }
+        if (state?.activity == LabActivity.SESSION) {
+            Text(stringResource(R.string.session_running, countdown(state?.endsAtElapsed)), style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { graph.stopLabSession() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Text(stringResource(R.string.session_stop))
+            }
+        } else {
+            Button(
+                onClick = { graph.startLabSession() },
+                enabled = pitch != null && state == null,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) { Text(stringResource(R.string.session_start)) }
+            if (pitch == null) Muted(stringResource(R.string.session_needs_pitch))
         }
-        Muted(stringResource(R.string.lab_disclaimer))
+        Muted(stringResource(R.string.session_safety))
     }
 }
 
@@ -234,10 +256,10 @@ private fun modeDescription(m: AcousticMode): Int = when (m) {
 }
 
 @Composable
-private fun DailyChart(values: List<Int>) {
+fun DailyChart(values: List<Int>) {
     val accent = MaterialTheme.colorScheme.primary
     val grid = LocalReliefColors.current.hairline
-    Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
         fun y(v: Int) = size.height - v / 10f * size.height
         for (g in listOf(0, 5, 10)) drawLine(grid, Offset(0f, y(g)), Offset(size.width, y(g)), 1f)
         val p = Path()
@@ -246,7 +268,6 @@ private fun DailyChart(values: List<Int>) {
             if (i == 0) p.moveTo(x, y(v)) else p.lineTo(x, y(v))
         }
         drawPath(p, accent, style = Stroke(width = 3f))
-        val last = values.last()
-        drawCircle(accent, 6f, Offset(size.width, y(last)))
+        drawCircle(accent, 6f, Offset(size.width, y(values.last())))
     }
 }

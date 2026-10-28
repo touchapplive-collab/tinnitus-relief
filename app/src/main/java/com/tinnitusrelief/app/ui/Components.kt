@@ -2,6 +2,8 @@ package com.tinnitusrelief.app.ui
 
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -53,9 +55,51 @@ fun ReliefCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
     }
 }
 
+/** Native-style section header: short, sentence case, in the accent colour. */
 @Composable
-fun Eyebrow(text: String, color: androidx.compose.ui.graphics.Color = LocalReliefColors.current.muted) {
-    Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, color = color)
+fun Eyebrow(text: String, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
+    Text(text, style = MaterialTheme.typography.titleSmall, color = color)
+}
+
+/** A plain Android list row: optional icon, title, one line of supporting text, chevron. */
+@Composable
+fun ListRow(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    trailing: String? = null,
+    chevron: Boolean = true,
+    onClick: (() -> Unit)? = null,
+) {
+    val muted = LocalReliefColors.current.muted
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null, tint = muted)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = muted, maxLines = 2)
+        }
+        if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodyMedium, color = muted)
+        if (chevron && onClick != null) androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = muted,
+        )
+    }
+}
+
+/** Section title above a group of list rows. */
+@Composable
+fun ListHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp),
+    )
 }
 
 @Composable

@@ -402,6 +402,13 @@ fun HistoryPage(graph: AppGraph, onBack: () -> Unit) {
     val df = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
 
     LabPageColumn(stringResource(R.string.history_title), onBack) {
+        val daily = records.filterIsInstance<ResponseRecord.Daily>().sortedBy { it.day }
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
+        Text(stringResource(R.string.progress_question), style = MaterialTheme.typography.titleMedium)
+        RatingPicker(daily.lastOrNull { it.day == today }?.rating) { graph.addDaily(it) }
+        if (daily.size >= 2) DailyChart(daily.takeLast(90).map { it.rating })
+        Muted(stringResource(R.string.progress_hint))
+        HorizontalDivider(color = extra.hairline)
         if (records.isEmpty()) Muted(stringResource(R.string.history_empty))
         for (r in records.asReversed()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
