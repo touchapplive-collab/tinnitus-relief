@@ -75,7 +75,7 @@ fun ListRow(
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -98,7 +98,26 @@ fun ListHeader(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 8.dp),
+    )
+}
+
+/** White rounded group of rows (light) / raised group (dark), like system settings. */
+@Composable
+fun RowGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ) { Column(content = content) }
+}
+
+/** Hairline between rows inside a [RowGroup], inset to the text. */
+@Composable
+fun GroupDivider() {
+    androidx.compose.material3.HorizontalDivider(
+        modifier = Modifier.padding(start = 16.dp),
+        color = LocalReliefColors.current.hairline,
     )
 }
 

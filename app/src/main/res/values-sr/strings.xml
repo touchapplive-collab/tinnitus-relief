@@ -188,4 +188,9 @@
     <string name="ri_short">60 sekundi šuma na tvojoj visini</string>
     <string name="progress_short">Dnevna ocena, grafikon i svi unosi</string>
     <string name="settings_info_header">Informacije</string>
+    <string name="greet_morning">Dobro jutro</string>
+    <string name="greet_day">Dobar dan</string>
+    <string name="greet_evening">Dobro veče</string>
+    <string name="greet_night">Laku noć</string>
+    <string name="timer_none">Isključen</string>
 </resources>

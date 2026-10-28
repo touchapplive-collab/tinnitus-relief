@@ -190,4 +190,9 @@
     <string name="ri_short">60 seconds of noise at your pitch</string>
     <string name="progress_short">Daily rating, chart and all entries</string>
     <string name="settings_info_header">Information</string>
+    <string name="greet_morning">Good morning</string>
+    <string name="greet_day">Good afternoon</string>
+    <string name="greet_evening">Good evening</string>
+    <string name="greet_night">Good night</string>
+    <string name="timer_none">Off</string>
 </resources>

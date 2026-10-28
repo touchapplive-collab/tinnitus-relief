@@ -72,7 +72,7 @@ fun ScreenTitle(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.headlineMedium,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
+        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 28.dp, bottom = 6.dp),
     )
 }
 
@@ -96,9 +96,9 @@ fun LabPageColumn(title: String?, onBack: (() -> Unit)?, content: @Composable ()
 @Composable
 private fun LabIntro(onAccept: () -> Unit) {
     var checked by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         ScreenTitle(stringResource(R.string.tab_lab))
-        Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Body(stringResource(R.string.lab_intro))
             Text(stringResource(R.string.lab_ack_title), style = MaterialTheme.typography.titleMedium)
             Body(stringResource(R.string.lab_ack_body))
@@ -111,56 +111,70 @@ private fun LabIntro(onAccept: () -> Unit) {
     }
 }
 
-/** The Lab home: one clean list; every tool opens its own page. */
+/** The Lab home: grouped rows; every tool opens its own page. */
 @Composable
 private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
     val pitch by graph.pitch.collectAsStateWithLifecycle()
     val lab by graph.lab.collectAsStateWithLifecycle()
     val state by graph.sessions.state.collectAsStateWithLifecycle()
     val noPitch = stringResource(R.string.pitch_not_set)
+    val needsPitch = stringResource(R.string.session_needs_pitch)
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         ScreenTitle(stringResource(R.string.tab_lab))
         Text(
             stringResource(R.string.lab_experimental),
             style = MaterialTheme.typography.bodyMedium,
             color = LocalReliefColors.current.warn,
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
 
         if (state?.activity == LabActivity.SESSION) {
+            Spacer(Modifier.height(16.dp))
+            RowGroup {
+                ListRow(
+                    title = stringResource(R.string.session_running, countdown(state?.endsAtElapsed)),
+                    subtitle = state?.label,
+                    icon = ReliefIcons.Wave,
+                    onClick = { open(LabPage.ENGINE) },
+                )
+            }
+        }
+
+        ListHeader(stringResource(R.string.pitch_title))
+        RowGroup {
+            ListRow(stringResource(R.string.pitch_guided), subtitle = pitch?.let { formatHz(it) } ?: noPitch, icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_GUIDED) })
+            GroupDivider()
+            ListRow(stringResource(R.string.pitch_manual), icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_MANUAL) })
+        }
+
+        ListHeader(stringResource(R.string.engine_title))
+        RowGroup {
             ListRow(
-                title = stringResource(R.string.session_running, countdown(state?.endsAtElapsed)),
-                subtitle = state?.label,
+                graph.modeLabel(lab.mode),
+                subtitle = if (pitch == null) needsPitch else "${lab.minutes} min",
                 icon = ReliefIcons.Wave,
                 onClick = { open(LabPage.ENGINE) },
             )
         }
 
-        ListHeader(stringResource(R.string.pitch_title))
-        ListRow(stringResource(R.string.pitch_guided), subtitle = pitch?.let { formatHz(it) } ?: noPitch, icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_GUIDED) })
-        ListRow(stringResource(R.string.pitch_manual), icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_MANUAL) })
-
-        ListHeader(stringResource(R.string.engine_title))
-        ListRow(
-            graph.modeLabel(lab.mode),
-            subtitle = if (pitch == null) stringResource(R.string.session_needs_pitch) else "${lab.minutes} min",
-            icon = ReliefIcons.Wave,
-            onClick = { open(LabPage.ENGINE) },
-        )
-
         ListHeader(stringResource(R.string.lab_tests))
-        ListRow(stringResource(R.string.rt_title), subtitle = stringResource(R.string.rt_short), onClick = { open(LabPage.RELIEF) })
-        ListRow(
-            stringResource(R.string.ri_title),
-            subtitle = if (pitch == null) stringResource(R.string.session_needs_pitch) else stringResource(R.string.ri_short),
-            onClick = if (pitch != null) ({ open(LabPage.RI) }) else null,
-        )
+        RowGroup {
+            ListRow(stringResource(R.string.rt_title), subtitle = stringResource(R.string.rt_short), onClick = { open(LabPage.RELIEF) })
+            GroupDivider()
+            ListRow(
+                stringResource(R.string.ri_title),
+                subtitle = if (pitch == null) needsPitch else stringResource(R.string.ri_short),
+                onClick = if (pitch != null) ({ open(LabPage.RI) }) else null,
+            )
+        }
 
         ListHeader(stringResource(R.string.progress_title))
-        ListRow(stringResource(R.string.history_title), subtitle = stringResource(R.string.progress_short), onClick = { open(LabPage.HISTORY) })
+        RowGroup {
+            ListRow(stringResource(R.string.history_title), subtitle = stringResource(R.string.progress_short), onClick = { open(LabPage.HISTORY) })
+        }
 
-        Muted(stringResource(R.string.lab_disclaimer), Modifier.padding(20.dp))
+        Muted(stringResource(R.string.lab_disclaimer), Modifier.padding(horizontal = 4.dp, vertical = 20.dp))
     }
 }
 
