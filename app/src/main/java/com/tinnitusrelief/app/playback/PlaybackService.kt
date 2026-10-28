@@ -37,8 +37,16 @@ class PlaybackService : MediaSessionService() {
         session = MediaSession.Builder(this, player)
             .setSessionActivity(openApp)
             .build()
-        scope.launch { g.selected.collect { player.setTitle(it?.name ?: "") } }
+        scope.launch { g.mix.collect { updateTitle() } }
+        scope.launch { g.sounds.collect { updateTitle() } }
+        scope.launch { g.sessions.state.collect { updateTitle() } }
         scope.launch { g.pauseRequests.collect { player.pauseExternal(it) } }
+    }
+
+    private fun updateTitle() {
+        val g = graph
+        val lab = g.sessions.state.value
+        player.setTitle(if (lab != null) lab.label else g.mixTitle())
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

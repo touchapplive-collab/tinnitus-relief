@@ -23,16 +23,19 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
+import com.tinnitusrelief.app.dsp.FocusAction
+import com.tinnitusrelief.app.dsp.FocusEvent
+import com.tinnitusrelief.app.dsp.FocusPolicy
 
 /**
- * A Media3 [Player] facade over the custom AudioTrack engine. It exists so that MediaSession,
- * the media notification, lock-screen controls, Bluetooth buttons and Android Auto all work with
- * our own real-time synthesis.
+ * A Media3 [Player] facade over the custom AudioTrack engine, so MediaSession, the media notification,
+ * lock-screen controls and headset/Bluetooth buttons all work with real-time synthesis.
  *
- * It also owns the platform duties of a well-behaved media app:
- *  - audio focus (pause for calls/other media, resume after transient loss, duck when asked)
- *  - "becoming noisy" (headphones unplugged / Bluetooth disconnected → pause)
- *  - a partial wake lock while playing so the render thread keeps running with the screen off
+ * Platform duties:
+ *  - audio focus via the unit-tested [FocusPolicy] (pause for calls, resume afterwards, duck on request)
+ *  - "becoming noisy" (headphones unplugged / Bluetooth lost) → pause
+ *  - partial wake lock only while playing, so the render thread keeps running with the screen off and
+ *    the CPU can sleep as soon as playback stops
  */
 @OptIn(UnstableApi::class)
 class ReliefPlayer(
@@ -41,9 +44,8 @@ class ReliefPlayer(
     private val graph: AppGraph,
 ) : SimpleBasePlayer(looper) {
 
-    private var playing = false
+    private val policy = FocusPolicy()
     private var title = ""
-    private var resumeOnFocusGain = false
     private var noisyRegistered = false
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -81,28 +83,31 @@ class ReliefPlayer(
             .setAvailableCommands(COMMANDS)
             .setPlaylist(listOf(item))
             .setPlaybackState(Player.STATE_READY)
-            .setPlayWhenReady(playing, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlayWhenReady(policy.playing, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
             .build()
     }
 
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-        resumeOnFocusGain = false
-        applyPlaying(playWhenReady, if (playWhenReady) 0 else USER_FADE_MS)
-        if (!playWhenReady) audioManager.abandonAudioFocusRequest(focusRequest)
+        if (playWhenReady) startPlayback() else {
+            stopPlayback(USER_FADE_MS)
+            policy.onUserPause()
+            audioManager.abandonAudioFocusRequest(focusRequest)
+        }
         return Futures.immediateVoidFuture()
     }
 
     override fun handlePrepare(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     override fun handleStop(): ListenableFuture<*> {
-        resumeOnFocusGain = false
-        applyPlaying(false, USER_FADE_MS)
+        stopPlayback(USER_FADE_MS)
+        policy.onUserPause()
         audioManager.abandonAudioFocusRequest(focusRequest)
         return Futures.immediateVoidFuture()
     }
 
     override fun handleRelease(): ListenableFuture<*> {
-        applyPlaying(false, 100)
+        stopPlayback(100)
+        policy.onUserPause()
         audioManager.abandonAudioFocusRequest(focusRequest)
         return Futures.immediateVoidFuture()
     }
@@ -113,52 +118,56 @@ class ReliefPlayer(
         invalidateState()
     }
 
-    /** Pause that originates outside the controller (sleep timer, focus loss, unplugged headphones). */
+    /** Pause from outside the controller (sleep timer, end of a Lab session, unplugged headphones). */
     fun pauseExternal(fadeMs: Int) {
-        resumeOnFocusGain = false
-        if (!playing) return
-        applyPlaying(false, fadeMs)
+        if (!policy.playing) return
+        stopPlayback(fadeMs)
+        policy.onUserPause()
         audioManager.abandonAudioFocusRequest(focusRequest)
         invalidateState()
     }
 
     private fun onFocusChange(change: Int) {
-        when (change) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                graph.engine.setDucked(false)
-                if (resumeOnFocusGain) {
-                    resumeOnFocusGain = false
-                    if (applyPlaying(true, 0)) invalidateState()
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> graph.engine.setDucked(true)
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> if (playing) {
-                // e.g. a phone call or navigation prompt: pause, keep focus request, resume afterwards
-                applyPlaying(false, 300)
-                resumeOnFocusGain = true
-                invalidateState()
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> pauseExternal(300)
+        val event = when (change) {
+            AudioManager.AUDIOFOCUS_GAIN -> FocusEvent.GAIN
+            AudioManager.AUDIOFOCUS_LOSS -> FocusEvent.LOSS
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> FocusEvent.LOSS_TRANSIENT
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> FocusEvent.LOSS_TRANSIENT_CAN_DUCK
+            else -> return
         }
+        var changed = false
+        for (a in policy.onFocus(event)) when (a) {
+            is FocusAction.Duck -> graph.engine.setDucked(a.ducked)
+            is FocusAction.Pause -> {
+                stopPlayback(a.fadeMs)
+                if (a.abandonFocus) audioManager.abandonAudioFocusRequest(focusRequest)
+                changed = true
+            }
+            FocusAction.Resume -> { resumeEngine(); changed = true }
+        }
+        if (changed) invalidateState()
     }
 
-    /** Returns true when the state actually changed. */
-    private fun applyPlaying(play: Boolean, fadeMs: Int): Boolean {
-        if (play == playing) return false
-        if (play) {
-            val granted = audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            if (!granted) return false
-            graph.engine.play()
-            wakeLock.acquire(WAKE_LOCK_MAX_MS)
-            registerNoisy()
-        } else {
-            graph.engine.pause(fadeMs)
-            if (wakeLock.isHeld) wakeLock.release()
-            unregisterNoisy()
-        }
-        playing = play
-        graph.onPlaybackChanged(play)
-        return true
+    private fun startPlayback() {
+        if (policy.playing) return
+        val granted = audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        if (!granted) return
+        policy.onUserPlay()
+        resumeEngine()
+    }
+
+    private fun resumeEngine() {
+        graph.engine.play()
+        wakeLock.acquire(WAKE_LOCK_MAX_MS)
+        registerNoisy()
+        graph.onPlaybackChanged(true)
+    }
+
+    private fun stopPlayback(fadeMs: Int) {
+        graph.engine.pause(fadeMs)
+        if (wakeLock.isHeld) wakeLock.release()
+        unregisterNoisy()
+        graph.onPlaybackChanged(false)
     }
 
     private fun registerNoisy() {
@@ -180,7 +189,7 @@ class ReliefPlayer(
     companion object {
         private const val MEDIA_ID = "relief"
         private const val USER_FADE_MS = 700
-        /** Safety net only; the lock is released on every pause. 12 h covers any real session. */
+        /** Safety net only; the lock is released on every pause. */
         private const val WAKE_LOCK_MAX_MS = 12L * 60 * 60 * 1000
 
         private val COMMANDS = Player.Commands.Builder()

@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.tinnitusrelief.app.engine.Transport
 import com.tinnitusrelief.app.playback.PlaybackService
 import com.tinnitusrelief.app.ui.AppRoot
 import com.tinnitusrelief.app.ui.theme.ReliefTheme
@@ -46,12 +47,22 @@ class MainActivity : ComponentActivity() {
         val future = MediaController.Builder(this, token).buildAsync()
         controllerFuture = future
         future.addListener(
-            { controller.value = runCatching { future.get() }.getOrNull() },
+            {
+                val c = runCatching { future.get() }.getOrNull()
+                controller.value = c
+                graph.transport = c?.let { mc ->
+                    object : Transport {
+                        override fun play() = mc.play()
+                        override fun pause() = mc.pause()
+                    }
+                }
+            },
             ContextCompat.getMainExecutor(this),
         )
     }
 
     override fun onStop() {
+        graph.transport = null
         controller.value = null
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null

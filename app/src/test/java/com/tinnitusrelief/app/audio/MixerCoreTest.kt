@@ -157,5 +157,32 @@ class MixerCoreTest {
         }
     }
 
+    @Test fun seamlessLoopRemovesTheClickAtTheWrapPoint() {
+        // a smooth random walk whose end is far from its start: looping it raw would click
+        val sr = 44100
+        val frames = sr * 4
+        val data = ShortArray(frames * 2)
+        val rnd = java.util.Random(9)
+        var v = 0.0
+        for (i in 0 until frames) {
+            v = (v + rnd.nextGaussian() * 60).coerceIn(-20000.0, 20000.0)
+            val s = (v + i * 2.0).coerceIn(-32000.0, 32000.0).toInt().toShort() // drift → big end/start gap
+            data[2 * i] = s; data[2 * i + 1] = s
+        }
+        val rawJump = abs(data[2 * (frames - 1)] - data[0])
+        val looped = Seamless.makeSeamless(Pcm(data, sr), crossfadeSeconds = 1f, targetRmsDb = -20f)
+        val n = looped.frames
+        val seam = abs(looped.data[2 * (n - 1)] - looped.data[0]).toDouble()
+        var typical = 0.0
+        for (i in 1 until n) typical = maxOf(typical, abs(looped.data[2 * i] - looped.data[2 * (i - 1)]).toDouble())
+        assertTrue("raw loop would jump $rawJump", rawJump > 5000)
+        assertTrue("seam $seam vs largest normal step $typical", seam <= typical)
+        // loudness normalised to about -20 dBFS (measured on the source, so the crossfade shifts it slightly)
+        var sum = 0.0
+        for (x in looped.data) sum += x.toDouble() * x
+        val db = 20 * log10(sqrt(sum / looped.data.size) / 32768.0)
+        assertEquals(-20.0, db, 1.5)
+    }
+
     private fun MixerCore.setLayer(v: Voice, g: Float) = setLayerB(v, g)
 }

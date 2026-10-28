@@ -1,6 +1,8 @@
 package com.tinnitusrelief.app.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -10,33 +12,26 @@ import kotlinx.coroutines.flow.first
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
-data class SavedSettings(
-    val soundId: String?,
-    val volume: Float,
-    val timerMinutes: Int,
-)
-
-/** Local-only persisted preferences (DataStore). */
+/** Local-only persisted preferences (DataStore). Nothing leaves the device. */
 class SettingsStore(private val context: Context) {
 
-    suspend fun load(): SavedSettings {
-        val p = context.dataStore.data.first()
-        return SavedSettings(
-            soundId = p[SOUND],
-            volume = p[VOLUME] ?: DEFAULT_VOLUME,
-            timerMinutes = p[TIMER] ?: 0,
-        )
-    }
+    suspend fun snapshot(): Preferences = context.dataStore.data.first()
 
-    suspend fun saveSound(id: String) = context.dataStore.edit { it[SOUND] = id }
-    suspend fun saveVolume(v: Float) = context.dataStore.edit { it[VOLUME] = v }
-    suspend fun saveTimer(m: Int) = context.dataStore.edit { it[TIMER] = m }
+    suspend fun putString(key: Preferences.Key<String>, v: String) = context.dataStore.edit { it[key] = v }
+    suspend fun putFloat(key: Preferences.Key<Float>, v: Float) = context.dataStore.edit { it[key] = v }
+    suspend fun putInt(key: Preferences.Key<Int>, v: Int) = context.dataStore.edit { it[key] = v }
+    suspend fun putBoolean(key: Preferences.Key<Boolean>, v: Boolean) = context.dataStore.edit { it[key] = v }
 
     companion object {
-        /** Conservative first-run level: about -26 dB below the source material. */
+        /** Conservative first-run level: about −26 dB below the source material. */
         const val DEFAULT_VOLUME = 0.45f
-        private val SOUND = stringPreferencesKey("sound_id")
-        private val VOLUME = floatPreferencesKey("volume")
-        private val TIMER = intPreferencesKey("timer_minutes")
+
+        val MIX = stringPreferencesKey("mix")
+        val PRESETS = stringPreferencesKey("presets")
+        val VOLUME = floatPreferencesKey("volume")
+        val TIMER = intPreferencesKey("timer_minutes")
+        val LAB = stringPreferencesKey("lab_settings")
+        val LAB_ACK = booleanPreferencesKey("lab_acknowledged")
+        val PITCH = floatPreferencesKey("pitch_hz")
     }
 }

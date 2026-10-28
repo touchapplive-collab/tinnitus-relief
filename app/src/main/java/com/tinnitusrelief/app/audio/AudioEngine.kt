@@ -49,7 +49,6 @@ class AudioEngine {
 
     fun setMasterVolume(slider: Float) = mixer.setLayerAGain(MixerCore.sliderToGain(slider))
 
-    fun setMaskerVoice(voice: Voice?) = mixer.setMaskerVoice(voice)
 
     fun setDucked(ducked: Boolean) = mixer.setDuck(ducked)
 

@@ -1,71 +1,144 @@
-# Tinnitus Relief (native Android)
+# Tinnitus Relief — native Android (Kotlin + Jetpack Compose)
 
-Kotlin · Jetpack Compose · Media3 · AudioTrack · DataStore. Radi potpuno offline, bez naloga, reklama i interneta (aplikacija nema INTERNET dozvolu).
+Potpuno offline aplikacija za ublažavanje tinitusa zvukom, sa odvojenom eksperimentalnom akustičnom laboratorijom.
 
-## Faza 1 (ovaj projekat)
+- Nema naloga, reklama, pretplata ni analitike.
+- Nema dozvole za internet.
+- Svi podaci ostaju na telefonu.
 
-- Glavni ekran: izabrani zvuk, veliko dugme Pusti/Pauza, jačina, tajmer za spavanje, „Zvuci", ulaz u Akustičnu laboratoriju.
-- Zvuci: Tuš (ugrađen snimak, `res/raw/shower.ogg`), beli, ružičasti i braon šum (generišu se uživo), i tvoji uvezeni fajlovi.
-- Zamena zvuka tuša svojim snimkom: Podešavanja → Zvuk tuša.
-- Puštanje u pozadini: foreground servis + MediaSession, kontrole na zaključanom ekranu i u notifikaciji, audio focus (pauza za poziv, nastavak posle), pauza kad se izvuku slušalice.
-- Bezbednost zvuka: konzervativna početna jačina (−26 dB), fade-in/fade-out, glatki prelazi između zvukova, peak limiter na −1 dBFS.
-- Akustična laboratorija je u ovoj fazi samo najava; sloj B (akustična stimulacija) postoji u motoru, ali je isključen.
+> **Status builda:** projekat **još nije kompajliran za Android**. Okruženje u kome je napisan nema pristup Google Maven serverima. DSP jezgro i logika (37 testova) kompajlirani su i testirani lokalno na JVM-u. APK pravi GitHub Actions (vidi dole). Dok taj build ne prođe, aplikacija se ne smatra završenom.
 
-## Kako dobiti APK
+## Funkcije
 
-Ovaj projekat nije Expo/React Native projekat i ne može da se izgradi preko Expo-a.
+### Relief (glavni ekran)
+- Veliko dugme Pusti/Pauza, glavna jačina, tajmer za spavanje (15/30/60/90 min, sa blagim utišavanjem od 8 s) i dugme Zvuci.
+- **Mikser:** do 3 zvuka istovremeno, svaki sa svojom jačinom.
+- **Sačuvani miksevi:** imenovani preseti.
+- **Zvuci** (svi offline):
+  - tuš;
+  - blaga kiša, jaka kiša, okean, reka, vodopad, ventilator (sintetisani, bešavne petlje);
+  - beli, roze i braon šum (generišu se uživo).
+- **Uvoz:** tvoji audio fajlovi (MP3/M4A/OGG/FLAC/WAV) kopiraju se u privatni storage.
+- **Zamena tuša** tvojim snimkom: Podešavanja → Zvuk tuša.
+- **Pozadinsko puštanje:** foreground servis (Media3 MediaSession).
+  - Kontrole su na zaključanom ekranu, u notifikaciji i na Bluetooth dugmadi.
+  - Audio focus: pauza za poziv i automatski nastavak posle njega; utišavanje za navigaciju.
+  - Pauza kad se izvuku slušalice.
+  - Wake lock postoji samo dok zvuk svira.
 
-### Opcija A: GitHub (bez instaliranja Android alata)
+### Acoustic Lab (eksperimentalno, podrazumevano isključeno)
+- **Uključivanje:** zahteva izričitu potvrdu.
+- **Visina tinitusa:**
+  - vođeni 3AFC postupak iz objavljenog rada, sa proverom oktave i finim podešavanjem;
+  - ručni logaritamski tjuner;
+  - opciono 3AFC određivanje glasnoće.
+- **Neural Acoustic Engine:** modularni DSP sa zero-phase STFT obradom i generatorima. Režimi:
+  - inspirisano DFCRS-om;
+  - sa zarezom (notched);
+  - HFEM (samo za poređenje);
+  - prilagođeni filter;
+  - uskopojasni šum;
+  - čist, AM i FM ton.
+- **Prikaz:** grafik frekvencijskog odziva i oznaka šta je objavljeno, a šta inženjerska pretpostavka.
+- **Sloj B (stimulacija):**
+  - nezavisna jačina, ograničena na −6 dB;
+  - može da svira sam ili zajedno sa maskerom;
+  - sesije traju 1–60 min (podrazumevano 15), sa fade-in i fade-out od 3 s;
+  - nikad se ne nastavlja sam posle prekida.
+- **Testovi i praćenje:**
+  - test rezidualne inhibicije;
+  - test olakšanja (pre / odmah posle / 5 min kasnije);
+  - dnevna ocena, grafikon i istorija, uz kopiranje podataka.
 
-```cmd
-cd TinnitusRelief
-git init
-git add .
-git commit -m "Tinnitus Relief - faza 1"
-git branch -M main
-git remote add origin https://github.com/TVOJE_IME/tinnitus-relief.git
-git push -u origin main
-```
+Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md)**.
 
-Na GitHub-u otvori **Actions → Android build → poslednji run → Artifacts → TinnitusRelief-debug-apk**. Skini zip, unutra je `app-debug.apk`. Prebaci ga na telefon i otvori (dozvoli „instalaciju iz nepoznatih izvora").
+## Bezbednost zvuka
+- Peak limiter na −1 dBFS i hard-clip zaštita na izlazu (testirano: izlaz nikad ne prelazi plafon).
+- Sve promene jačine i zvuka su izglađene, bez klikova.
+- Konzervativna početna jačina (−26 dB).
+- Lab tonovi su ograničeni na −12 dBFS.
+- Softverski limiter ne garantuje bezbedan nivo zvučnog pritiska na svim slušalicama, i aplikacija to jasno kaže.
 
-### Opcija B: Android Studio
+## Kako dobiti APK (GitHub, bez instaliranja alata)
 
-File → Open → izaberi folder `TinnitusRelief` → sačekaj Gradle sync → priključi telefon (USB debugging) → Run ▶.
-Ili iz komandne linije: `gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+1. Na github.com napravi **prazan javni** repozitorijum, npr. `tinnitus-relief`.
+2. U folderu projekta pokreni:
+   ```cmd
+   git init
+   git add .
+   git commit -m "Tinnitus Relief"
+   git branch -M main
+   git remote add origin https://github.com/TVOJE_IME/tinnitus-relief.git
+   git push -u origin main
+   ```
+3. Na GitHub-u otvori **Actions** i sačekaj zeleni kružić (oko 5–8 min).
+4. APK je na stalnom linku:
+   `https://github.com/TVOJE_IME/tinnitus-relief/releases/latest/download/TinnitusRelief.apk`
 
-## Potpisan release AAB za Google Play
+**Instalacija na Samsung:**
+1. Otvori link u Chrome-u ili Samsung Internetu na telefonu.
+2. Otvori preuzeti fajl i dozvoli „Instaliranje nepoznatih aplikacija" za taj pregledač.
+3. Ako se pojavi Play Protect upozorenje, izaberi „Ipak instaliraj".
+4. Svaki novi build ima isti potpis, pa se instalira preko starog bez gubitka podataka.
 
-1. Napravi ključ (čuvaj ga zauvek, bez njega ne možeš da objaviš update):
+**Ako build ne prođe:** u Actions otvori crveni run → *Build debug APK* i kopiraj poruku greške.
+
+**Android Studio (alternativa):** File → Open → folder projekta → Run ▶, ili iz komandne linije `gradlew assembleDebug`.
+
+## Release AAB za Google Play
+1. Napravi ključ i čuvaj ga zauvek:
    ```cmd
    keytool -genkeypair -v -keystore release.jks -alias relief -keyalg RSA -keysize 4096 -validity 10000
    ```
-2. U korenu projekta napravi `keystore.properties` (u .gitignore je, ne commituj ga):
-   ```properties
-   storeFile=release.jks
-   storePassword=...
-   keyAlias=relief
-   keyPassword=...
+2. U korenu projekta napravi `keystore.properties` (u .gitignore je):
    ```
-3. `gradlew bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`
-4. U Play Console uključi Play App Signing i otpremi AAB.
-5. Pre objave promeni `applicationId` u `app/build.gradle.kts` na svoj jedinstveni (npr. `rs.tvojeime.tinnitus`) i po želji ime aplikacije u `res/values/strings.xml`. Za Play deklaraciju foreground servisa izaberi „Media playback".
+   storeFile=release.jks
+   storePassword=…
+   keyAlias=relief
+   keyPassword=…
+   ```
+3. Pokreni `gradlew bundleRelease`. Rezultat je `app/build/outputs/bundle/release/app-release.aab`.
+4. Pre objave:
+   - promeni `applicationId` na svoj jedinstveni;
+   - u Play Console izaberi Play App Signing i deklaraciju foreground servisa „Media playback";
+   - zdravstvena aplikacija mora imati jasnu izjavu da ne postavlja dijagnozu i ne leči.
 
 ## Testovi
+- **Lokalno (već pokrenuto):** 37 testova, svi prolaze. Rezultati su u [docs/test-results.txt](docs/test-results.txt).
+- **Na GitHub-u:** `gradlew testDebugUnitTest` se pokreće pre svakog builda.
 
-`gradlew testDebugUnitTest` pokreće JVM testove DSP jezgra (`MixerCoreTest`): tačnost pojačanja, taper jačine, limiter (nikad ne prelazi plafon), fade bez klikova, crossfade pri promeni zvuka, ducking, sloj B je tih dok se izričito ne uključi, kontinuitet petlje, stabilnost i nivo šuma. Svih 10 prolazi.
+| Oblast | Šta se proverava |
+|---|---|
+| FFT | poređenje sa direktnim DFT-om, povratna transformacija |
+| Opsezi | DFCRS jednačine iz rada, NBN 1/3 oktave, zarez od 1 oktave, HFEM 6–9 kHz |
+| Spektralna obrada | transparentnost (greška < 1e-4); tačno +10 dB u opsezima i 0 dB van njih; tačnost širine na ivicama; dubina zareza > 40 dB; promena opsega bez klikova |
+| Filteri | RBJ band-pass, peak, low-pass i notch odziv |
+| Generatori | tačnost frekvencije, granice AM/FM, kalibracija i selektivnost uskopojasnog šuma, tajming 3AFC tonova |
+| 3AFC | objavljeno pravilo sužavanja (2520–6350 Hz u primeru iz rada), konvergencija za 6 visina, glasnoća do 1 dB |
+| Mikser | tačnost pojačanja, limiter (nikad ne seče), fade i crossfade bez skokova, ducking, najviše 3 kanala, ograničenje sloja B, sloj B tih dok se ne uključi, 3 minuta mešanja bez NaN-a i preko plafona |
+| Petlje | bešavan prelaz petlje i normalizacija; svih 7 ugrađenih OGG fajlova proveren alatom `tools/check_loops.py` |
+| Prekidi | audio focus: poziv → pauza → automatski nastavak; navigacija → utišavanje; druga muzika → pauza bez nastavka; korisnik pauzirao za vreme poziva → nema nastavka |
+| Podaci | zapis/čitanje odgovora, oštećeni redovi se preskaču, kodovanje miksa i preseta, odbijanje neispravnih vrednosti podešavanja |
+
+**Šta nije testirano (traži pravi telefon):**
+- rad u pozadini na Samsung One UI;
+- Bluetooth i žičane slušalice;
+- potrošnja baterije u dužim sesijama;
+- izgled interfejsa;
+- ponašanje MediaSession-a.
 
 ## Struktura
-
 ```
-audio/MixerCore.kt     čisto DSP jezgro: sloj A (masker), sloj B (stimulacija), fade, duck, limiter
-audio/AudioEngine.kt   AudioTrack (float PCM) + real-time nit
-audio/Voices.kt        petlja PCM-a sa resamplingom, generatori šuma
-audio/PcmDecoder.kt    dekodiranje bilo kog formata (MediaCodec) + bešavna petlja
-playback/              Media3 SimpleBasePlayer, foreground MediaSessionService, audio focus
-data/                  biblioteka zvukova (privatni storage), DataStore podešavanja
-ui/                    Compose ekrani
-tools/generate_shower.py  skripta kojom je sintetisan ugrađeni zvuk tuša
+dsp/        čisto Kotlin DSP (bez Androida, testirano): FFT, Biquad, SpectralShaper, opsezi iz radova,
+            generatori, 3AFC, sesije, audio-focus politika, kodeci
+audio/      MixerCore (slojevi A i B, limiter), AudioEngine (AudioTrack nit), dekoder, bešavne petlje
+engine/     MaskerEngine, FrequencyMatchingEngine, AcousticProcessingEngine, SessionManager,
+            LocalResponseTracker, test rezidualne inhibicije i test olakšanja
+playback/   Media3 SimpleBasePlayer + foreground MediaSessionService
+data/       biblioteka zvukova, DataStore
+ui/         Compose: Relief, Acoustic Lab, Settings
+tools/      generisanje zvukova, provera petlji, analiza objavljenih DFCRS audio primera
+docs/       RESEARCH.md, test-results.txt
 ```
 
 Aplikacija ne postavlja dijagnozu, ne leči i ne izleči tinitus.

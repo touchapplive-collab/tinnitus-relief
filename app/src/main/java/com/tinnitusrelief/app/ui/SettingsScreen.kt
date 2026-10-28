@@ -58,6 +58,14 @@ fun SettingsScreen(graph: AppGraph, onReplaceShower: () -> Unit) {
             Body(stringResource(R.string.settings_safety_body))
         }
 
+        Section(stringResource(R.string.settings_battery_title)) {
+            Body(stringResource(R.string.settings_battery_body))
+        }
+
+        Section(stringResource(R.string.settings_research_title)) {
+            Body(stringResource(R.string.settings_research_body))
+        }
+
         Section(stringResource(R.string.settings_about_title)) {
             Body(stringResource(R.string.settings_about_body))
             Spacer(Modifier.height(8.dp))

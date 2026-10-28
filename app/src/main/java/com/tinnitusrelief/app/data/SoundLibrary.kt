@@ -6,6 +6,8 @@ import android.provider.OpenableColumns
 import com.tinnitusrelief.app.R
 import com.tinnitusrelief.app.audio.NoiseColor
 import com.tinnitusrelief.app.audio.NoiseVoice
+import com.tinnitusrelief.app.audio.Pcm
+import com.tinnitusrelief.app.audio.Seamless
 import com.tinnitusrelief.app.audio.PcmDecoder
 import com.tinnitusrelief.app.audio.PcmLoopVoice
 import com.tinnitusrelief.app.audio.Voice
@@ -27,6 +29,7 @@ data class Sound(
 /**
  * The offline sound library. Everything lives inside the app's private storage:
  *  - the bundled shower recording (res/raw/shower.ogg), optionally replaced by the user's own file
+ *  - six bundled nature loops (rain, heavy rain, ocean, river, waterfall, fan)
  *  - noises generated in real time (no files)
  *  - files the user imported, copied to filesDir/sounds/imported
  */
@@ -42,10 +45,11 @@ class SoundLibrary(private val context: Context) {
     fun refresh() {
         val list = mutableListOf(
             Sound(SHOWER, context.getString(R.string.sound_shower), SoundKind.BUILT_IN, customShower.exists()),
-            Sound(WHITE, context.getString(R.string.sound_white), SoundKind.GENERATED),
-            Sound(PINK, context.getString(R.string.sound_pink), SoundKind.GENERATED),
-            Sound(BROWN, context.getString(R.string.sound_brown), SoundKind.GENERATED),
         )
+        for ((id, name) in NATURE) list += Sound(id, context.getString(name), SoundKind.BUILT_IN)
+        list += Sound(WHITE, context.getString(R.string.sound_white), SoundKind.GENERATED)
+        list += Sound(PINK, context.getString(R.string.sound_pink), SoundKind.GENERATED)
+        list += Sound(BROWN, context.getString(R.string.sound_brown), SoundKind.GENERATED)
         importDir.listFiles()?.sortedBy { it.lastModified() }?.forEach {
             list += Sound(FILE_PREFIX + it.name, it.nameWithoutExtension, SoundKind.IMPORTED)
         }
@@ -56,23 +60,37 @@ class SoundLibrary(private val context: Context) {
 
     val default: Sound get() = _sounds.value.first()
 
-    /** Builds the real-time voice for a sound. Call off the main thread: decoding can take a moment. */
-    fun createVoice(sound: Sound, outputRate: Int): Voice = when (sound.id) {
-        WHITE -> NoiseVoice(NoiseColor.WHITE)
-        PINK -> NoiseVoice(NoiseColor.PINK)
-        BROWN -> NoiseVoice(NoiseColor.BROWN)
-        SHOWER -> {
-            val pcm = if (customShower.exists()) PcmDecoder.decodeFile(customShower)
-            else PcmDecoder.decodeRaw(context, R.raw.shower)
-            val seamless = PcmDecoder.makeSeamless(pcm)
-            PcmLoopVoice(seamless.data, seamless.sampleRate, outputRate)
+    /** Small cache of decoded loops; the PCM is read-only, so several voices can share one buffer. */
+    private val pcmCache = object : LinkedHashMap<String, Pcm>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pcm>?) = size > 4
+    }
+
+    private fun loop(id: String, decode: () -> Pcm): Pcm {
+        synchronized(pcmCache) { pcmCache[id]?.let { return it } }
+        val pcm = Seamless.makeSeamless(decode())
+        synchronized(pcmCache) { pcmCache[id] = pcm }
+        return pcm
+    }
+
+    private fun invalidate(id: String) = synchronized(pcmCache) { pcmCache.remove(id) }
+
+    /** Builds a fresh real-time voice for a sound. Call off the main thread: decoding can take a moment. */
+    fun createVoice(sound: Sound, outputRate: Int): Voice {
+        val pcm = when (sound.id) {
+            WHITE -> return NoiseVoice(NoiseColor.WHITE)
+            PINK -> return NoiseVoice(NoiseColor.PINK)
+            BROWN -> return NoiseVoice(NoiseColor.BROWN)
+            SHOWER -> loop(SHOWER) {
+                if (customShower.exists()) PcmDecoder.decodeFile(customShower) else PcmDecoder.decodeRaw(context, R.raw.shower)
+            }
+            in RAW -> loop(sound.id) { PcmDecoder.decodeRaw(context, RAW.getValue(sound.id)) }
+            else -> {
+                val f = File(importDir, sound.id.removePrefix(FILE_PREFIX))
+                if (!f.exists()) throw IOException("File missing")
+                loop(sound.id) { PcmDecoder.decodeFile(f) }
+            }
         }
-        else -> {
-            val f = File(importDir, sound.id.removePrefix(FILE_PREFIX))
-            if (!f.exists()) throw IOException("File missing")
-            val seamless = PcmDecoder.makeSeamless(PcmDecoder.decodeFile(f))
-            PcmLoopVoice(seamless.data, seamless.sampleRate, outputRate)
-        }
+        return PcmLoopVoice(pcm.data, pcm.sampleRate, outputRate)
     }
 
     /** Copies a picked file into private storage and returns the new sound. Validates by decoding. */
@@ -102,17 +120,20 @@ class SoundLibrary(private val context: Context) {
         }
         customShower.delete()
         tmp.renameTo(customShower)
+        invalidate(SHOWER)
         refresh()
     }
 
     fun restoreShower() {
         customShower.delete()
+        invalidate(SHOWER)
         refresh()
     }
 
     fun delete(sound: Sound) {
         if (sound.kind != SoundKind.IMPORTED) return
         File(importDir, sound.id.removePrefix(FILE_PREFIX)).delete()
+        invalidate(sound.id)
         refresh()
     }
 
@@ -143,5 +164,23 @@ class SoundLibrary(private val context: Context) {
         const val PINK = "noise:pink"
         const val BROWN = "noise:brown"
         const val FILE_PREFIX = "file:"
+
+        /** Bundled nature loops (synthesised offline, see tools/generate_nature.py). */
+        private val NATURE = listOf(
+            "builtin:rain_gentle" to R.string.sound_rain_gentle,
+            "builtin:rain_heavy" to R.string.sound_rain_heavy,
+            "builtin:ocean" to R.string.sound_ocean,
+            "builtin:river" to R.string.sound_river,
+            "builtin:waterfall" to R.string.sound_waterfall,
+            "builtin:fan" to R.string.sound_fan,
+        )
+        private val RAW = mapOf(
+            "builtin:rain_gentle" to R.raw.rain_gentle,
+            "builtin:rain_heavy" to R.raw.rain_heavy,
+            "builtin:ocean" to R.raw.ocean,
+            "builtin:river" to R.raw.river,
+            "builtin:waterfall" to R.raw.waterfall,
+            "builtin:fan" to R.raw.fan,
+        )
     }
 }

@@ -1,0 +1,30 @@
+name: DFCRS audio analysis
+
+# Run manually (Actions → DFCRS audio analysis → Run workflow).
+# Downloads the example files published with the MOST trial (PMC12766481) and measures the filter
+# that was applied. If the download is blocked, download mmc3.mp3 and mmc4.mp3 yourself and run
+# tools/analyze_dfcrs_audio.py locally.
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-numpy
+      - name: Download published example audio
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+          base=https://pmc.ncbi.nlm.nih.gov/articles/instance/12766481/bin
+          for f in mmc2 mmc3 mmc4 mmc5; do curl -fL -A "$UA" -o $f.mp3 $base/$f.mp3; done
+          ls -la *.mp3
+      - name: Analyse UM vs DFCRS (4000 Hz)
+        run: python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc4.mp3 dfcrs_report.md 4000
+      - name: Analyse UM vs HFEM (check of the method on a known 6–9 kHz +10 dB boost)
+        run: python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc5.mp3 hfem_report.md 4000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfcrs-analysis
+          path: "*_report.md"

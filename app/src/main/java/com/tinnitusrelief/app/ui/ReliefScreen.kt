@@ -72,10 +72,14 @@ fun ReliefScreen(
     onOpenSounds: () -> Unit,
     onOpenLab: () -> Unit,
 ) {
-    val sound by graph.selected.collectAsStateWithLifecycle()
+    val mix by graph.mix.collectAsStateWithLifecycle()
+    val sounds by graph.sounds.collectAsStateWithLifecycle()
     val playing by graph.isPlaying.collectAsStateWithLifecycle()
     val volume by graph.volume.collectAsStateWithLifecycle()
-    val loading by graph.loading.collectAsStateWithLifecycle()
+    val loadingIds by graph.loadingSounds.collectAsStateWithLifecycle()
+    val labState by graph.sessions.state.collectAsStateWithLifecycle()
+    val loading = loadingIds.isNotEmpty()
+    val title = remember(mix, sounds) { graph.mixTitle() }
     val timerMinutes by graph.timerMinutes.collectAsStateWithLifecycle()
     val endsAt by graph.timerEndsAt.collectAsStateWithLifecycle()
     val extra = LocalReliefColors.current
@@ -92,7 +96,7 @@ fun ReliefScreen(
         )
         Spacer(Modifier.height(10.dp))
         AnimatedContent(
-            targetState = sound?.name ?: "",
+            targetState = title,
             transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(250)) },
             label = "sound-name",
         ) { name ->
@@ -109,6 +113,7 @@ fun ReliefScreen(
         Text(
             when {
                 loading -> stringResource(R.string.status_loading)
+                labState != null -> stringResource(R.string.status_lab_active, labState!!.label)
                 playing -> stringResource(R.string.status_playing)
                 else -> stringResource(R.string.status_ready)
             },
@@ -117,7 +122,7 @@ fun ReliefScreen(
         )
 
         Spacer(Modifier.weight(1f))
-        PlayOrb(playing = playing, enabled = controlsReady && !loading, onClick = onPlayPause)
+        PlayOrb(playing = playing, enabled = controlsReady && mix.isNotEmpty(), onClick = onPlayPause)
         Spacer(Modifier.weight(1f))
 
         VolumeRow(volume, onChange = graph::setVolume, onFinished = graph::commitVolume)

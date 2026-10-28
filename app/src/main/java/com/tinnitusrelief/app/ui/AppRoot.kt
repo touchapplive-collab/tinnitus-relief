@@ -74,7 +74,7 @@ fun AppRoot(graph: AppGraph, controlsReady: Boolean, onPlayPause: () -> Unit) {
                         onOpenSounds = { showSounds = true },
                         onOpenLab = { tab = TAB_LAB },
                     )
-                    TAB_LAB -> LabScreen()
+                    TAB_LAB -> LabScreen(graph)
                     else -> SettingsScreen(graph, onReplaceShower = { showerLauncher.launch(arrayOf("audio/*")) })
                 }
             }

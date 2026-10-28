@@ -1,0 +1,49 @@
+Local JVM run of the unit tests (Kotlin 2.2.0 compiler, OpenJDK 21), 2026-10-28T21:39Z
+
+PASS DspTest.audioFocusInterruptionsFollowAndroidGuidance (9 ms)
+PASS DspTest.bandwidthIsAccurateAtTheEdges (416 ms)
+PASS DspTest.biquadResponsesAreCorrect (3 ms)
+PASS DspTest.changingBandsWhilePlayingDoesNotClick (66 ms)
+PASS DspTest.comparatorBandsMatchPublications (0 ms)
+PASS DspTest.dfcrsBandsMatchPublishedEquations (0 ms)
+PASS DspTest.dfcrsProcessingAppliesExactlyTenDbInBand (204 ms)
+PASS DspTest.fftMatchesDirectDftAndRoundTrips (1 ms)
+PASS DspTest.gainCurveIsFlatInsideAndZeroOutside (0 ms)
+PASS DspTest.loudnessMatchConvergesToOneDb (2 ms)
+PASS DspTest.maskerAndStimulusMixedForMinutesStayStableAndBelowCeiling (4166 ms)
+PASS DspTest.maskerKeepsAtMostThreeChannels (38 ms)
+PASS DspTest.narrowbandNoiseIsStableCalibratedAndNarrow (131 ms)
+PASS DspTest.notchRemovesTheTinnitusFrequency (69 ms)
+PASS DspTest.perChannelVolumeAndLayerBCapAreAccurate (8 ms)
+PASS DspTest.responsesRoundTripAndBadLinesAreSkipped (32 ms)
+PASS DspTest.sessionTimerEndsAtTheLimitAndCapsAtSixtyMinutes (0 ms)
+PASS DspTest.shaperIsTransparentWithUnityGain (20 ms)
+PASS DspTest.threeAfcConvergesForAnIdealListener (1 ms)
+PASS DspTest.threeAfcFollowsThePublishedNarrowingRule (5 ms)
+PASS DspTest.toneFrequencyAndModulationAreCorrect (33 ms)
+PASS DspTest.toneSequenceHasPublishedTimingAndNoClicks (19 ms)
+PASS LabModelTest.everyModeProducesTheDocumentedBands (1 ms)
+PASS LabModelTest.experimentalDefaultsAreConservative (0 ms)
+PASS LabModelTest.labSettingsRoundTripAndClampHostileValues (4 ms)
+PASS LabModelTest.mixAndPresetsRoundTripAndKeepAtMostThreeSounds (1 ms)
+PASS MixerCoreTest.duckingReducesLevelSmoothly (5 ms)
+PASS MixerCoreTest.fadeInAndOutAreClickFree (42 ms)
+PASS MixerCoreTest.gainIsAccurateAfterSmoothing (9 ms)
+PASS MixerCoreTest.layerBIsSilentUnlessExplicitlyEnabled (0 ms)
+PASS MixerCoreTest.limiterDoesNotTouchNormalLevels (6 ms)
+PASS MixerCoreTest.noiseIsStableAndCalibrated (116 ms)
+PASS MixerCoreTest.outputNeverClipsEvenWithExtremeInput (16 ms)
+PASS MixerCoreTest.pcmLoopIsContinuousAcrossTheWrapPoint (5 ms)
+PASS MixerCoreTest.seamlessLoopRemovesTheClickAtTheWrapPoint (55 ms)
+PASS MixerCoreTest.sliderTaperIsMonotonicAndBounded (0 ms)
+PASS MixerCoreTest.switchingSoundsCrossfadesWithoutJumps (20 ms)
+37 tests, 37 passed, 0 failed
+
+Bundled loop check (tools/check_loops.py):
+fan.ogg             34.0s  rms  -18.5 dBFS  peak  -5.2 dBFS  seam 0.0629 vs p99.9 step 0.1076  OK
+ocean.ogg           34.0s  rms  -18.7 dBFS  peak  -0.9 dBFS  seam 0.0093 vs p99.9 step 0.5662  OK
+rain_gentle.ogg     34.0s  rms  -18.4 dBFS  peak  -2.9 dBFS  seam 0.0599 vs p99.9 step 0.2162  OK
+rain_heavy.ogg      34.0s  rms  -18.4 dBFS  peak  -4.3 dBFS  seam 0.0637 vs p99.9 step 0.2408  OK
+river.ogg           34.0s  rms  -18.4 dBFS  peak  -5.1 dBFS  seam 0.0700 vs p99.9 step 0.1744  OK
+shower.ogg          40.0s  rms  -17.5 dBFS  peak  -2.2 dBFS  seam 0.0515 vs p99.9 step 0.3036  OK
+waterfall.ogg       34.0s  rms  -18.4 dBFS  peak  -5.6 dBFS  seam 0.0478 vs p99.9 step 0.1831  OK
