@@ -1,0 +1,46 @@
+name: Android build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests (DSP)
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+      - name: Build debug APK
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk TinnitusRelief.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TinnitusRelief-apk
+          path: TinnitusRelief.apk
+      # Direct download link for the phone (no GitHub login, no zip):
+      # https://github.com/<owner>/<repo>/releases/latest/download/TinnitusRelief.apk
+      - name: Publish to "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          body: "Automatski build iz grane main (commit ${{ github.sha }})."
+          prerelease: false
+          make_latest: true
+          files: TinnitusRelief.apk
+      - name: Move the latest tag to this commit
+        run: |
+          git tag -f latest
+          git push -f origin latest
