@@ -1,0 +1,24 @@
+name: Research dataset
+
+# Manual. Downloads the public Newcastle dataset (doi:10.25405/data.ncl.27109693) and keeps it only as a
+# short-lived workflow artifact for offline analysis. Nothing is committed.
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download
+        run: |
+          mkdir d && cd d
+          curl -sSL https://ndownloader.figshare.com/files/49425304 -o Final_Data_Set.xlsx
+          curl -sSL https://ndownloader.figshare.com/files/49809513 -o README.txt
+          curl -sSL https://ndownloader.figshare.com/files/49424731 -o code.zip
+          curl -sSL https://api.figshare.com/v2/articles/27109693 -o meta.json
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ncl-dataset
+          path: d/
+          retention-days: 3
