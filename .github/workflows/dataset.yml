@@ -1,24 +1,33 @@
 name: Research dataset
 
-# Manual. Downloads the public Newcastle dataset (doi:10.25405/data.ncl.27109693) and keeps it only as a
-# short-lived workflow artifact for offline analysis. Nothing is committed.
+# Manual. Downloads the public Newcastle dataset (doi:10.25405/data.ncl.27109693, CC BY-NC-SA 4.0) for
+# offline analysis. The files are encrypted to tools/xfer_pub.pem and pushed to a temporary branch that is
+# deleted after the transfer; the main branch never contains them.
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   fetch:
     runs-on: ubuntu-24.04
     steps:
-      - name: Download
+      - uses: actions/checkout@v5
+      - name: Download and encrypt
         run: |
-          mkdir d && cd d
-          curl -sSL https://ndownloader.figshare.com/files/49425304 -o Final_Data_Set.xlsx
-          curl -sSL https://ndownloader.figshare.com/files/49809513 -o README.txt
-          curl -sSL https://ndownloader.figshare.com/files/49424731 -o code.zip
-          curl -sSL https://api.figshare.com/v2/articles/27109693 -o meta.json
-          ls -la
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ncl-dataset
-          path: d/
-          retention-days: 3
+          mkdir d
+          curl -sSL https://ndownloader.figshare.com/files/49425304 -o d/Final_Data_Set.xlsx
+          curl -sSL https://ndownloader.figshare.com/files/49809513 -o d/README.txt
+          curl -sSL https://ndownloader.figshare.com/files/49424731 -o d/code.zip
+          curl -sSL https://api.figshare.com/v2/articles/27109693 -o d/meta.json
+          tar czf d.tgz d
+          openssl rand -hex 32 > k.txt
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in d.tgz -out d.tgz.enc -pass file:k.txt
+          openssl pkeyutl -encrypt -pubin -inkey tools/xfer_pub.pem -in k.txt -out k.enc
+      - name: Push to temporary branch
+        run: |
+          mkdir out && mv d.tgz.enc k.enc out/
+          cd out && git init -q && git checkout -q -b xfer-tmp
+          git add . && git -c user.name=ci -c user.email=ci@example.com commit -qm transfer
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" xfer-tmp
