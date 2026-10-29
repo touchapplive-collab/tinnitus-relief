@@ -197,6 +197,10 @@ Digital RMS, peak limits and percentages of device volume do not determine sound
 8. **Spatial undersampling (found while specifying V6).** In low bands with a high f0 an octave holds only about 4–8 harmonics (e.g. 1–2 kHz at f0 = 256 Hz: harmonics 4–7). Ripple densities up to 7.5 cycles/octave cannot be represented there and alias. This is a property of the published stimulus, not of this implementation; it is reproduced as published.
 9. **Efficacy.** The effect is modest: −0.5 points over sham on a 0–10 scale. There are no predictors of response, no follow-up beyond 3 weeks, and no remission in the dataset (0 of 420 measurements at 0). This generator is a research instrument, not a therapy claim.
 
+## 5b. Published description vs deposited trial stimulus
+
+At G2, eleven differences (D1–D11) were documented in `docs/ripple-g2/G2-REPORT.md`. Option A was chosen: the stimulus follows the published article.
+
 ## 6. Validation plan (objective, automated, before any listening)
 
 All tests use seeded RNGs and run on the JVM in CI. There is one report per build.

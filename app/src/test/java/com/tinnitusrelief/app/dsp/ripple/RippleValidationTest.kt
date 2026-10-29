@@ -22,5 +22,15 @@ class RippleValidationTest {
     @Test fun v09RampsAndJoins() { check(v48.v9()) }
     @Test fun v10v11PeaksAndLevel() { v48.v10v11().forEach(::check) }
     @Test fun v12Randomness() { check(v48.v12()) }
+    /** G2: band choice for a 5.04 kHz pitch ([P] Table 1, nearest of the 17 match tones on a log scale). */
+    @Test fun pitch5040HzUsesTheFourPointEightKilohertzRow() {
+        val r = RippleBandTable.forPitch(5040.0)
+        assertTrue(Math.abs(r.matchHz - 4756.83) < 0.01)
+        assertTrue(r.active == RippleBand.B5 && r.activeAlt == RippleBand.B4 && r.sham == RippleBand.B3 && r.shamAlt == RippleBand.B2)
+        // just above the 4.76/5.66 kHz midpoint (5187 Hz) the main bands are unchanged, only the alternatives drop out
+        val up = RippleBandTable.forPitch(5200.0)
+        assertTrue(up.active == RippleBand.B5 && up.activeAlt == null && up.sham == RippleBand.B3 && up.shamAlt == null)
+    }
+
     @Test fun negativeControlsDetectFaults() { check(v48.negativeControls()) }
 }
