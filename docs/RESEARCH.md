@@ -37,8 +37,11 @@ All Lab modes are off by default, time-limited, capped at −6 dB, and require e
 **How to close the gap.** S3 published the example audio files `mmc3.mp3` (unmodified music, "UM") and `mmc4.mp3` ("DFCRS-4000hz-10.00dB"). Their spectral ratio *is* the applied filter. `tools/analyze_dfcrs_audio.py` measures it: boosted regions, −3 dB edges, peak gain and second-by-second variation.
 
 - The analyser was validated on a synthetic file with a known two-band +10 dB boost. It recovered 2522–3177 Hz and 5043–6354 Hz at 10.0 dB, against the predicted 2520–3175 Hz and 5040–6350 Hz.
-- It has **not** been run on the real files yet: this build environment cannot reach PMC. Run the GitHub workflow *DFCRS audio analysis*, or download the two files and run the script locally.
-- If the measured slope differs from 1/12 octave, set `GainCurve.DEFAULT_TRANSITION_OCTAVES` (or the `transitionOctaves` setting) to the measured value.
+- **Run on the real files (October 2026)**, downloaded from the Elsevier supplementary host by the *Research downloads* workflow (`mmc3`, `mmc4`, `mmc5`; 44.1 kHz stereo, 128 kbit/s, 198 s). Results:
+  - `mmc4` is the same recording as `mmc3` (correlation 0.999) with two boosted regions: **2485–3131 Hz** (≈ +10.0 dB) and **5043–6354 Hz** (≈ +10.2 dB). Predicted by the published equations: 2520–3175 Hz and 5040–6350 Hz. Band placement and gain are confirmed.
+  - **The boost is static**: second-by-second standard deviation 0.4 dB. "Dynamic" refers to the music, not to the filter.
+  - **The edges are near brick-wall**: the gain goes from < 1 dB to > 9 dB within about 1/24 octave. The app's 1/12-octave raised-cosine transition is gentler than the published files. Setting the transition to ≈ 1/48 octave would match them (not changed yet: Lab algorithms are frozen until approved).
+  - `mmc5` (HFEM) has **+20 dB** at 6.0–9.0 kHz, not the +10 dB stated in the paper's text.
 
 ## Evidence for DFCRS (for honest framing)
 
@@ -48,6 +51,17 @@ All Lab modes are off by default, time-limited, capped at −6 dB, and require e
   - One complete remission among 440 participants, in the HFEM arm.
 - **JMIR (S2):** non-randomised; 5.6 % self-reported disappearance at 3 months.
 - **S1:** pilot with n = 32; no numeric results reported.
+
+## Spectral-ripple sound therapy (Yukhnovich et al., Hearing Research 2025) — not implemented yet
+
+Source code and data were found in the Newcastle repository (doi:10.25405/data.ncl.27109693; README licence **CC BY-NC-SA 4.0**, figshare metadata CC BY-NC 4.0):
+- `mod_ripple.m` — the complete generator: harmonic complex (f0 96–256 Hz), amplitude, phase or noise-replacement modulation of the harmonics in the chosen band, ripple `1 + sin(2π(φ + tmr·t + S(t)·f))`, S(t) = 4.5 ± 3 cyc/oct with an 8 s cycle, 1 s band ramps.
+- `Generate_Full_Experiment_Stimuli.m` — "can be run in present form to exactly recreate stimuli used in original published trial": 900 × 4 s segments = 60 min per file, 7 octave-wide bands in ½-octave steps from 1–2 kHz to 8–16 kHz, 4 hearing-loss corrections (0/15/30/45 dB, 1→8 kHz). `loud = 0.1` is marked "needs optimising".
+- `Sound files notes.docx` — the table that assigns the active and the sham band from the tinnitus match (17 match frequencies, 1–16 kHz in ¼-octave steps).
+- `Hearing_Tin_Stim_Generation.m` — the tone / ½-octave noise matching stimuli.
+- `Final_Data_Set.xlsx` — anonymised questionnaires (NRS loudness, THI, TFI, hyperacusis) for the cross-over trial; 77 completers per the README.
+
+A protocol-faithful port is therefore possible. The licence allows it for non-commercial use with attribution and the same licence for the derived code; commercial use would need permission from Newcastle University.
 
 ## Other modes
 
@@ -83,6 +97,18 @@ LIMITATION: phone output is uncalibrated. Thresholds and levels are personal and
 - Ratings before and after, with outcome gone / quieter / same / louder.
 - A stopwatch until the tinnitus returns, capped at 10 min.
 - Limits: uncalibrated level, and the +10 dB step is capped by the −6 dB Lab limit (the UI says when that happens).
+
+## Long-term tracking (Phase 0)
+
+Four outcomes are kept apart: masking (rating while a sound plays), comfort, residual inhibition (after a sound stops) and long-term change (daily rating **with no sound playing**). Only the last one feeds the trend.
+
+| Item | Status |
+|---|---|
+| Daily rating stores whether a sound was playing; a "Pause sound" button is offered; optional "bother" rating | ENGINEERING |
+| Pitch confidence: HIGH = ≥ 3 estimates in 180 days within 1/3 octave and the latest not "not sure"; MEDIUM = ≥ 2 within 1/2 octave or one "very sure"; otherwise LOW | ENGINEERING RULE |
+| Weekly summaries (Monday–Sunday); trend needs ≥ 4 weeks with ≥ 3 unmasked ratings; first two vs last two weeks; < 1 point = "about the same" | ENGINEERING THRESHOLD |
+| "Self-reported tinnitus-free weeks": consecutive recent weeks with ≥ 4 unmasked ratings, all 0. The app never uses the word remission | wording rule |
+| CSV export (one row per entry) through the system file picker; nothing leaves the phone otherwise | — |
 
 ## Relief test and long-term tracking
 

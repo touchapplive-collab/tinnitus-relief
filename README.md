@@ -6,7 +6,7 @@ Potpuno offline aplikacija za ublažavanje tinitusa zvukom, sa odvojenom eksperi
 - Nema dozvole za internet.
 - Svi podaci ostaju na telefonu.
 
-> **Status builda:** projekat **još nije kompajliran za Android**. Okruženje u kome je napisan nema pristup Google Maven serverima. DSP jezgro i logika (37 testova) kompajlirani su i testirani lokalno na JVM-u. APK pravi GitHub Actions (vidi dole). Dok taj build ne prođe, aplikacija se ne smatra završenom.
+> **Status builda:** APK se uspešno gradi na GitHub Actions; poslednji build je na stalnom linku ispod. 63 unit testa prolaze lokalno i na GitHub-u.
 
 ## Funkcije
 
@@ -57,7 +57,10 @@ Potpuno offline aplikacija za ublažavanje tinitusa zvukom, sa odvojenom eksperi
 - **Testovi i praćenje:**
   - test rezidualne inhibicije;
   - test olakšanja (pre / odmah posle / 5 min kasnije);
-  - dnevna ocena, grafikon i istorija, uz kopiranje podataka.
+  - dnevna ocena **bez zvuka** (aplikacija upozori i ponudi pauzu ako nešto svira), uz neobaveznu ocenu koliko smeta;
+  - pouzdanost visine tinitusa („Koliko si siguran?" posle svakog određivanja; niska / srednja / visoka);
+  - nedeljni napredak: maskiranje, prijatnost, rezidualna inhibicija i dugoročna promena prikazani odvojeno; trend tek posle 4 nedelje;
+  - izvoz cele istorije u CSV i kopiranje podataka.
 
 Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md)**.
 
@@ -113,7 +116,7 @@ Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md
    - zdravstvena aplikacija mora imati jasnu izjavu da ne postavlja dijagnozu i ne leči.
 
 ## Testovi
-- **Lokalno (već pokrenuto):** 58 testova, svi prolaze. Rezultati su u [docs/test-results.txt](docs/test-results.txt).
+- **Lokalno (već pokrenuto):** 63 testa, svi prolaze. Rezultati su u [docs/test-results.txt](docs/test-results.txt).
 - **Na GitHub-u:** `gradlew testDebugUnitTest` se pokreće pre svakog builda.
 
 | Oblast | Šta se proverava |
@@ -129,6 +132,7 @@ Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md
 | Prekidi | audio focus: poziv → pauza → automatski nastavak; navigacija → utišavanje; druga muzika → pauza bez nastavka; korisnik pauzirao za vreme poziva → nema nastavka |
 | Personalizacija | FFT tačnost na poznatim sinusima, boje šuma (beli +3 dB/okt, roze ravan, braon opada), analiza ne pretpostavlja energiju svuda, odziv filtera, izjednačenje glasnoće (±0,05 dB), EQ u realnom vremenu, promena bez klika, 5–8 poređenja, kretanje ka preferenci simuliranog slušaoca, granice pojačanja, „nema razlike" → original, nazad/preskoči/determinizam, nastavak sesije, A/B prelaz bez klika i automatsko zaustavljanje |
 | Vođeno određivanje | tonovi do 5 s, ulaz/izlaz 150 ms, trenutno prebacivanje bez klika, ponavljanje, brzo dodirivanje, kompenzacija glasnoće samo utišava |
+| Praćenje | pravila pouzdanosti visine, nedelje od ponedeljka, trend tek sa dovoljno podataka, jedan dan sa 0 nije nedelja bez tinitusa, CSV sa ispravnim navodnicima, stari zapisi se i dalje čitaju |
 | Podaci | zapis/čitanje odgovora, oštećeni redovi se preskaču, kodovanje miksa i preseta, odbijanje neispravnih vrednosti podešavanja |
 
 **Šta nije testirano (traži pravi telefon):**
