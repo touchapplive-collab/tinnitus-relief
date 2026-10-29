@@ -4,7 +4,7 @@ name: Ripple G3 (silent)
 on:
   push:
     branches: [main]
-    paths: ["ripple/**", "ripplebench/**", ".github/workflows/ripple.yml", "settings.gradle.kts", "build.gradle.kts", "app/build.gradle.kts"]
+    paths: ["ripple/**", "ripplebench/**", "app/**", ".github/workflows/ripple.yml", "settings.gradle.kts", "build.gradle.kts"]
   workflow_dispatch:
 
 permissions:
@@ -18,24 +18,23 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
-      - name: Isolation and no-audio checks
+      - name: Safety-gate and no-audio checks
         run: |
           set -e
-          # the production app must not reference or depend on the experimental modules
-          if grep -rn "com.tinnitusrelief.ripple" app/src; then echo "::error::app references the ripple package"; exit 1; fi
-          if grep -n 'project(":ripple' app/build.gradle.kts; then echo "::error::app depends on a ripple module"; exit 1; fi
-          # no audio-output (or input) API anywhere in the experimental modules
-          if grep -rnE "AudioTrack|AAudio|MediaPlayer|SoundPool|ExoPlayer|media3|OpenSL|[Oo]boe|AudioRecord|ToneGenerator|Ringtone|JetPlayer" ripple/src ripplebench/src; then
-            echo "::error::audio API found in experimental modules"; exit 1; fi
-          echo "::notice title=isolation::app has no ripple dependency; no audio-output API in ripple or ripplebench"
+          # audible ripple playback must stay disabled until calibration and explicit approval
+          grep -q "const val AUDIBLE_PLAYBACK_AUTHORIZED = false" ripple/src/main/kotlin/com/tinnitusrelief/ripple/engine/Safety.kt || { echo "::error::audible playback is not disabled"; exit 1; }
+          # no audio-output (or input) API in the ripple module, the bench, or the app's ripple glue
+          if grep -rnE "AudioTrack|AAudio|MediaPlayer|SoundPool|ExoPlayer|media3|OpenSL|[Oo]boe|AudioRecord|ToneGenerator|Ringtone|JetPlayer" ripple/src ripplebench/src app/src/main/java/com/tinnitusrelief/app/ripple; then
+            echo "::error::audio API found in ripple code"; exit 1; fi
+          echo "::notice title=safety gate::AUDIBLE_PLAYBACK_AUTHORIZED = false; no audio API in ripple code"
       - name: Ripple unit tests
         run: |
           set -o pipefail
           ./gradlew --no-daemon --console=plain :ripple:test 2>&1 | tee ripple-test.log
-      - name: App dependency check
+      - name: App unit tests
         run: |
-          ./gradlew --no-daemon --console=plain -q :app:dependencies --configuration debugRuntimeClasspath > deps.txt
-          if grep -n "project :ripple" deps.txt; then echo "::error::app runtime classpath contains ripple"; exit 1; fi
+          set -o pipefail
+          ./gradlew --no-daemon --console=plain :app:testDebugUnitTest 2>&1 | tee app-test.log
       - name: Build silent bench APK
         run: |
           set -o pipefail
@@ -44,7 +43,7 @@ jobs:
       - name: Report results
         if: always()
         run: |
-          for f in ripple-test.log bench-build.log; do
+          for f in ripple-test.log app-test.log bench-build.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "^e: |FAILED|PASSED" "$f" | head -60; grep -A12 "What went wrong" "$f" | head -30; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' )
             [ -n "$msg" ] && echo "::notice title=$f::$msg"
@@ -100,10 +99,18 @@ jobs:
           disable-animations: true
           script: |
             adb logcat -c
-            ./gradlew --no-daemon --console=plain :ripplebench:connectedDebugAndroidTest > connected.log 2>&1 || (adb logcat -d -s RippleBenchReport:I RippleBench:I AndroidRuntime:E TestRunner:E > bench-logcat.txt; exit 1)
+            ./gradlew --no-daemon --console=plain :ripplebench:connectedDebugAndroidTest :app:connectedDebugAndroidTest > connected.log 2>&1 || (adb logcat -d -s RippleBenchReport:I RippleBench:I AndroidRuntime:E TestRunner:E > bench-logcat.txt; exit 1)
             adb logcat -d -s RippleBenchReport:I > bench-logcat.txt
       - name: Report emulator results
         if: always()
         run: |
           [ -f bench-logcat.txt ] && echo "::notice title=emulator bench::$(sed 's/%/%25/g' bench-logcat.txt | sed -E 's/^.*RippleBench(Report)?: //' | head -60 | awk '{printf "%s%%0A", $0}')"
-          [ -f connected.log ] && echo "::notice title=connected test::$( { grep -E 'Tests on|FAILED|BUILD|What went wrong' -A3 connected.log | head -40; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          [ -f connected.log ] && echo "::notice title=connected test::$( { grep -E 'Tests on|FAILED|BUILD|What went wrong|Exception|Error' -A4 connected.log | head -80; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          for x in app/build/outputs/androidTest-results/connected/debug/*.xml ripplebench/build/outputs/androidTest-results/connected/debug/*.xml app/build/outputs/androidTest-results/connected/*.xml ripplebench/build/outputs/androidTest-results/connected/*.xml; do
+            [ -f "$x" ] && python3 -c "
+          import sys,xml.etree.ElementTree as E
+          r=E.parse(sys.argv[1]).getroot(); out=[]
+          for tc in r.iter('testcase'):
+              f=tc.find('failure'); out.append(('FAIL ' if f is not None else 'PASS ')+tc.get('classname','').split('.')[-1]+'.'+tc.get('name')+(' :: '+f.text[:600].replace(chr(10),' ') if f is not None else ''))
+          print('::notice title=instrumented '+sys.argv[1].split('/')[0]+'::'+'%0A'.join(out))" "$x"
+          done
