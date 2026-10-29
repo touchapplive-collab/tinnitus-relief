@@ -283,7 +283,8 @@ fun RiTestPage(graph: AppGraph, onBack: () -> Unit) {
                 var outcome by remember { mutableStateOf<RiTestFlow.Outcome?>(null) }
                 var rating by remember { mutableStateOf<Int?>(null) }
                 Text(stringResource(R.string.ri_after_question), style = MaterialTheme.typography.titleMedium)
-                ChoiceRow(RiTestFlow.Outcome.entries, outcome, { outcomeLabel(it) }) { outcome = it }
+                val labels = RiTestFlow.Outcome.entries.associateWith { outcomeLabel(it) }
+                ChoiceRow(RiTestFlow.Outcome.entries, outcome, { labels.getValue(it) }) { outcome = it }
                 Text(stringResource(R.string.rate_question), style = MaterialTheme.typography.titleMedium)
                 RatingPicker(rating) { rating = it }
                 Button(
