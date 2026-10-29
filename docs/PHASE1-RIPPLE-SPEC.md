@@ -1,6 +1,6 @@
 # Phase 1 — Spectral-ripple (cross-frequency decorrelation) generator: technical specification
 
-Status: **proposal for approval**. No generator code, no UI, no listening exposure exists yet.
+Status: **G1 approved (rev. 2, 29 Oct 2026)**. Rev. 2 corrects V6, V7 and the hearing-safety section. G1 adds only the pure-DSP generator (`dsp/ripple`) and its tests; nothing in the app references it, and there is no UI and no listening exposure.
 Scope: an experimental signal generator reproducing the stimulus of Yukhnovich et al. (2025), kept separate
 from the Shower masker, personalization and the DFCRS-inspired Lab mode, none of which change.
 
@@ -101,7 +101,7 @@ dsp/ripple/                      pure Kotlin, no Android, unit-testable on the J
   RippleSegmentRenderer.kt       renders one 4 s segment into a FloatArray (seeded RNG)
   RippleMetrics.kt               analysis used by the validation tests (section 6)
 audio/
-  RippleVoice.kt                 implements the existing Voice interface; plays pre-rendered segments
+  RippleVoice.kt                 [G3] implements the existing Voice interface; plays pre-rendered segments
 engine/
   RippleEngine.kt                background renderer (double buffer), session control, safety state
 ```
@@ -109,7 +109,7 @@ engine/
 **Rendering**
 - Segments are rendered ahead of time on a background thread, one segment ahead, into a double buffer.
 - No synthesis happens on the audio thread. Up to 156 harmonics × 48 000 samples/s would otherwise be about 7.5 M oscillator steps per second.
-- `RippleVoice` only copies samples.
+- `RippleVoice` only copies samples. **G1 contains no `RippleVoice` and no engine:** the generator is pure DSP that nothing in the app calls, so it cannot produce sound.
 
 **Sample rate**
 - Uses the device's native rate (usually 48 kHz; the trial used 44.1 kHz).
@@ -135,10 +135,10 @@ The app cannot know the sound pressure level. Phone output, headphone sensitivit
 
 | # | Control |
 |---|---|
-| S1 | **Fixed digital level.** Each segment is normalised to a fixed RMS (proposed −30 dBFS) after the hearing correction. Expected peaks are about −17 dBFS for random phases. The limiter must never engage at nominal level; this is verified in section 6. |
+| S1 | **Fixed digital level (signal integrity only).** Each segment is normalised to a fixed RMS (−30 dBFS) after the hearing correction, so peaks stay far below full scale and the limiter never has to act (V10). This keeps the signal undistorted and repeatable. It says **nothing** about sound pressure at the ear. |
 | S2 | **Layer B cap** stays at −6 dB, and the hard-clip guard stays in place. |
 | S3 | **User-set level.** Each session starts silent and fades in over 5 s. The user may raise the level up to "clearly audible, comfortable, not louder than my tinnitus is bothersome". The app never raises the level by itself and never restores a higher level than the last confirmed one. |
-| S4 | **Relative ceiling.** The stimulus level cannot exceed the user's most recent comfortable Shower listening level plus 0 dB. This is a relative, uncalibrated guard. |
+| S4 | **Measured ceiling.** The app gain is capped per measured device and headphone combination so that the acoustic limit in section 4.1 holds even at 100% device volume. Unmeasured combinations are not authorised. Comparison with the Shower volume is dropped: it is not a safety measure. |
 | S5 | **Device-volume advisory.** If media volume is above 60% of maximum, the app shows a warning. It is labelled as advice from the study, not a safety limit. Android's own sound-dose warnings (CSD, Android 14+) stay active. |
 | S6 | **Dose.** At most 60 min per session and a 60 min break between sessions, as in [P]. Proposed daily cap of 2 h. The timer cannot be extended mid-session. |
 | S7 | **Stops.** Headphone disconnect pauses playback (existing behaviour). No automatic resume. A large hearing correction (30–45 dB) requires an extra confirmation, because it puts most of the energy at 8–16 kHz. |
@@ -146,7 +146,44 @@ The app cannot know the sound pressure level. Phone output, headphone sensitivit
 | S9 | **Stop rule.** If a session is followed by a rating 2 or more points higher, or by a new symptom (fullness, pain, distortion), the generator locks until the user reviews advice. No pitch match, or a low-confidence pitch match, also blocks use. |
 | S10 | **Logging.** Every session's level setting, duration and pre/post ratings go to the existing local tracker, so dose and adverse changes are visible. |
 
-Optional later item: calibration with an external sound-level meter for users who own one. It is not needed for the safety logic above.
+Controls S3, S5–S10 are behavioural. Only S4, based on the measurement below, addresses sound pressure.
+
+### 4.1 Output-level validation (required before any listening is authorised)
+
+Digital RMS, peak limits and percentages of device volume do not determine sound pressure at the eardrum, so listening is authorised only after an acoustic measurement.
+
+**Who and where.** An audiology or acoustics laboratory, or a person trained to use the equipment. This cannot be done from software, and was not done in G1.
+
+**Equipment**
+- Ear simulator matching the headphone type: IEC 60318-4 occluded-ear simulator for in-ear phones; IEC 60318-1 artificial ear, or a head-and-torso simulator, for on-ear and over-ear phones.
+- Class 1 sound level meter or measurement system (IEC 61672-1).
+- Acoustic calibrator (IEC 60942, 94 dB at 1 kHz), checked before and after each session.
+
+**Method**
+- Follow the EN 50332-1/-2 procedure for personal music players.
+- Convert to free-field or diffuse-field equivalent levels as specified there, so results compare with ITU-T H.870 / WHO safe-listening values.
+
+**Test signal**
+- Render these configurations, 60 s each:
+  - the generator output for two pitches, using the A1 band and the C1 band;
+  - hearing correction M = 0 and M = 45 dB, each at the app's maximum Lab gain.
+- Disable device audio effects (equaliser, Dolby or loudness enhancement). Record the Bluetooth codec and absolute-volume state.
+
+**Measurements**
+- LAeq (60 s) and LCpeak at device media volume 100%, 80%, 60% and 40%, and at the app's maximum gain.
+- Three repetitions with re-seating of the headphone. Report the mean and spread.
+- Result: a table of device volume × app gain → dB(A) for that combination.
+
+**Acceptance (proposed, for approval)**
+- At app maximum gain and 100% device volume, LAeq ≤ 75 dB(A) for every configuration.
+- The weekly dose at the maximum allowed use (2 h/day, 14 h/week) is then about 10 dB below the ITU-T H.870 reference of 80 dB(A) for 40 h/week (allowed level for 14 h/week ≈ 84.6 dB(A)).
+- LCpeak ≤ 115 dB(C).
+
+**Outcome**
+- A combination-specific gain cap, stored with the measurement record: device model, headphone model, connection, date and measurer.
+- Any change of headphone, device or connection type requires a new measurement.
+
+**Ears with hearing loss.** The 30 and 45 dB corrections add high-frequency energy for impaired ears. Their acceptance additionally requires the user's audiologist to agree, because a laboratory value cannot account for an individual's hearing loss.
 
 ## 5. Scientific uncertainties
 
@@ -157,7 +194,8 @@ Optional later item: calibration with an external sound-level meter for users wh
 5. **Level.** No level is given in [P] beyond "≤ 60% device volume". There is no evidence on dose-response by level.
 6. **Codec.** The trial files were distributed in a compressed format, which may have changed the content above about 15 kHz. We generate uncompressed audio.
 7. **Band power.** With d = 1, mean amplitude is unchanged as [P] states, but band *power* rises by 1.76 dB (mean An² = 1.5). It is unknown whether the sham was level-matched beyond that. In this spec, active and sham have equal total RMS by construction.
-8. **Efficacy.** The effect is modest: −0.5 points over sham on a 0–10 scale. There are no predictors of response, no follow-up beyond 3 weeks, and no remission in the dataset (0 of 420 measurements at 0). This generator is a research instrument, not a therapy claim.
+8. **Spatial undersampling (found while specifying V6).** In low bands with a high f0 an octave holds only about 4–8 harmonics (e.g. 1–2 kHz at f0 = 256 Hz: harmonics 4–7). Ripple densities up to 7.5 cycles/octave cannot be represented there and alias. This is a property of the published stimulus, not of this implementation; it is reproduced as published.
+9. **Efficacy.** The effect is modest: −0.5 points over sham on a 0–10 scale. There are no predictors of response, no follow-up beyond 3 weeks, and no remission in the dataset (0 of 420 measurements at 0). This generator is a research instrument, not a therapy claim.
 
 ## 6. Validation plan (objective, automated, before any listening)
 
@@ -170,16 +208,22 @@ All tests use seeded RNGs and run on the JVM in CI. There is one report per buil
 | V3 | Hearing correction | Measured gain at 1, 2, 2.8, 4, 8, 11 and 16 kHz within ±0.5 dB of w(f)·M for M = 15, 30 and 45. Total RMS unchanged (±0.1 dB). |
 | V4 | Band table | All 17 rows of [P] Table 1 (A1/A2/C1/C2) reproduced exactly. Band edges = 1000·2^(k/2). |
 | V5 | AM depth and rate | Per-harmonic envelope (demodulated) inside the band spans 0–2 (±0.02) and has mean 1 (±0.02). The envelope spectrum peaks at 1 Hz. Harmonics outside the band have envelope variation < 0.1 dB, apart from ramps. |
-| V6 | Spectral ripple | The 2-D modulation spectrum of the envelope matrix (log-frequency × time) has energy at 1 Hz temporal rate and 1.5–7.5 cycles/octave. The instantaneous spectral-rate estimate follows S(t) with an 8 s period (r² > 0.9). |
-| V7 | Cross-frequency decorrelation | Envelope correlation between harmonic pairs inside the band, against octave separation Δ, follows the predicted time-averaged pattern (RMS error < 0.05). Pairs outside the band correlate at ≥ 0.99. |
+| V6 | Spectral ripple and its 8 s cycle | Envelopes are measured from the audio by demodulating each harmonic (section 6.1). **(a) Equation check:** for every in-band harmonic, the measured envelope (ramps divided out, middle 2 s) matches the paper's eq. 2, evaluated independently with the segment's recorded f0, q and p, to RMS error ≤ 0.01. **(b) Blind ripple density:** in segments where the in-band harmonics are dense enough to resolve 7.5 cycles/octave (lowest in-band harmonic number ≥ 22), a sinusoid fitted across log-frequency every 50 ms gives the density Ŝ(t) and ripple phase. The fit explains ≥ 95% of variance. The ripple-phase slope gives ω = 1 Hz ± 0.05. Pooled over ≥ 200 segments, Ŝ stays within 1.5–7.5 (±0.1), and its rate of change never exceeds 2πνr = 2.36 cyc/oct/s (+10%). **(c) The 8 s cycle:** one segment covers only half a cycle, and p and q are redrawn per segment, so the cycle cannot be seen inside a segment. Each segment's Ŝ(t) is placed at cycle phase p + 2πνt, using the recorded p, and pooled across segments. A sinusoid fitted to the pooled points must give mean 4.5 ± 0.1, amplitude 3 ± 0.1 and r² ≥ 0.98. |
+| V7 | No modulation outside the band; correct band boundaries | For every harmonic outside the modulated band, the measured envelope (after dividing out the known 1 s ramps, middle 2 s) must be constant: (max − min)/(max + min) < 0.002, i.e. variation < 0.035 dB. Its modulation spectrum (0.25–20 Hz) is at least 60 dB below its mean. For every in-band harmonic, the envelope range is 2 ± 0.05 relative to its mean (full depth). The first harmonic inside each band edge is modulated and the first outside is not. Correlation between constant envelopes is not used: it is undefined. |
 | V8 | Active vs sham equivalence | Long-term ⅓-octave spectra differ by < 0.5 dB outside the two bands, and by the predicted 1.76 dB at most inside them. Total RMS equal (±0.1 dB). |
 | V9 | Ramps and joins | 1 s raised-cosine onset/offset (shape error < 1%). No sample-to-sample step at segment joins larger than within-segment steps. |
 | V10 | Peaks and clipping | Over a 60 min render at nominal level: peak ≤ −6 dBFS, zero samples clipped, zero limiter gain reduction, no NaN or Inf. Crest factor reported. |
 | V11 | Level stability | Segment RMS within ±0.5 dB of target over 60 min |
 | V12 | Randomness | f0, q, p and φ distributions uniform (Kolmogorov–Smirnov p > 0.01 over 10 000 draws). Same seed gives identical output. |
 | V13 | Sample-rate independence | V1–V11 pass at both 44.1 and 48 kHz |
-| V14 | Real-time | Rendering takes < 30% of real time on the reference phone (device test). No audio underruns in a 60 min session. |
-| V15 | Safety logic | Unit tests for S1–S9: fade-in, no automatic level increase, relative ceiling, session cap and break, daily cap, stop rule, screening gates |
+| V14 | Real-time | **G3, needs a phone.** Rendering takes < 30% of real time on the reference phone. No audio underruns in a 60 min session. In G1 only the JVM render speed is reported. |
+| V15 | Safety logic | S1 (normalisation, no clipping) is tested in G1. S2–S10 belong to the playback engine, which does not exist in G1; they are tested in G3. |
+
+### 6.1 How envelopes are measured
+
+For harmonic n, the audio is multiplied by e^(−i2πnf0t). It is then low-pass filtered by three cascaded moving averages, each exactly one period 1/f0 long; fractional lengths are handled by interpolation. This removes every other harmonic exactly while passing the slow envelope. The envelope is twice the magnitude of the result.
+
+The measurement uses only the audio plus the segment's recorded f0. The recorded q and p are used only where a test says so (V6a, V6c). The reference equation in V6a is written separately from the generator.
 
 Deliverables for review: the metrics report, spectrograms and modulation spectra for active and sham at three example pitches, and 10-second WAV excerpts at **reduced** level. The excerpts are listened to only by the developer and only after S1–S10 are approved.
 
@@ -212,5 +256,5 @@ Deliverables for review: the metrics report, spectrograms and modulation spectra
 | G0 | This specification | Your approval |
 | G1 | `dsp/ripple` and validation tests V1–V13 and V15, with no audio output on any device | — |
 | G2 | CI metrics report, spectrograms and excerpts | Your review |
-| G3 | Developer-only device tests (V14, routing, limiter) behind the build flag, at reduced level | Approval of section 4 |
+| G3 | Engine and playback path; developer-only device tests (V14, routing, limiter) behind the build flag | Approval of section 4 and a completed section 4.1 measurement before any listening |
 | G4 | Decision on any personal listening protocol, considering the carryover and blinding limits from the dataset review | Separate approval |
