@@ -39,6 +39,11 @@ class LocalResponseTracker(context: Context) {
         }
     }
 
+    /** Replaces the record stored at [atMs] (used to add a confidence rating to a pitch estimate). */
+    suspend fun replace(atMs: Long, r: ResponseRecord) = withContext(Dispatchers.IO) {
+        mutex.withLock { persist(_records.value.map { if (it.atMs == atMs) r else it }) }
+    }
+
     suspend fun delete(atMs: Long) = withContext(Dispatchers.IO) {
         mutex.withLock { persist(_records.value.filterNot { it.atMs == atMs }) }
     }

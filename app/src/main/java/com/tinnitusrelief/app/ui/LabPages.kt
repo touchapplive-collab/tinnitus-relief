@@ -47,6 +47,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
 import com.tinnitusrelief.app.dsp.ResponseRecord
+import com.tinnitusrelief.app.dsp.LongTermTrend
+import com.tinnitusrelief.app.dsp.Progress
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.tinnitusrelief.app.dsp.ThreeAfcPitch
 import com.tinnitusrelief.app.engine.FrequencyMatchingEngine
 import com.tinnitusrelief.app.engine.ReliefTestFlow
@@ -297,6 +301,7 @@ fun GuidedPitchPage(graph: AppGraph, onBack: () -> Unit) {
                 m.loudness?.takeIf { it.done }?.let {
                     Body(stringResource(R.string.loud_result, it.sensationLevelDb))
                 }
+                ConfidenceQuestion(graph)
                 Button(onClick = onBack, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(stringResource(R.string.done)) }
             }
         }
@@ -363,7 +368,22 @@ fun ManualPitchPage(graph: AppGraph, onBack: () -> Unit) {
                 Text(stringResource(if (stored) R.string.afc_saved else R.string.pitch_save))
             }
         }
+        if (stored) ConfidenceQuestion(graph, key = freq)
     }
+}
+
+/** "How sure are you?" after a pitch estimate is saved; stored on the most recent pitch record. */
+@Composable
+private fun ConfidenceQuestion(graph: AppGraph, key: Any? = Unit) {
+    var sure by remember(key) { mutableStateOf<Int?>(null) }
+    val labels = mapOf(
+        1 to stringResource(R.string.pitch_sure_1),
+        2 to stringResource(R.string.pitch_sure_2),
+        3 to stringResource(R.string.pitch_sure_3),
+    )
+    Text(stringResource(R.string.pitch_sure_question), style = MaterialTheme.typography.titleMedium)
+    ChoiceRow(listOf(1, 2, 3), sure, { labels.getValue(it) }) { sure = it; graph.setPitchConfidence(it) }
+    Muted(stringResource(R.string.pitch_sure_hint))
 }
 
 // ======================= residual inhibition =======================
@@ -524,14 +544,32 @@ fun HistoryPage(graph: AppGraph, onBack: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val extra = LocalReliefColors.current
     val df = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
+    val playing by graph.isPlaying.collectAsStateWithLifecycle()
+    var exported by remember { mutableStateOf<Boolean?>(null) }
+    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) graph.exportCsv(uri) { exported = it }
+    }
 
     LabPageColumn(stringResource(R.string.history_title), onBack) {
         val daily = records.filterIsInstance<ResponseRecord.Daily>().sortedBy { it.day }
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
+        val todays = daily.lastOrNull { it.day == today }
         Text(stringResource(R.string.progress_question), style = MaterialTheme.typography.titleMedium)
-        RatingPicker(daily.lastOrNull { it.day == today }?.rating) { graph.addDaily(it) }
-        if (daily.size >= 2) DailyChart(daily.takeLast(90).map { it.rating })
+        if (playing) {
+            Muted(stringResource(R.string.progress_playing))
+            OutlinedButton(onClick = { graph.pausePlayback() }) { Text(stringResource(R.string.progress_pause)) }
+        }
+        RatingPicker(todays?.rating) { graph.addDaily(it) }
+        if (todays?.unmasked == false) Muted(stringResource(R.string.progress_masked_saved))
+        if (todays != null) {
+            Text(stringResource(R.string.progress_bother), style = MaterialTheme.typography.titleSmall)
+            RatingPicker(todays.bother) { graph.setDailyBother(it) }
+        }
+        val unmasked = daily.filter { it.unmasked != false }
+        if (unmasked.size >= 2) DailyChart(unmasked.takeLast(90).map { it.rating })
         Muted(stringResource(R.string.progress_hint))
+        HorizontalDivider(color = extra.hairline)
+        WeeklyProgress(records)
         HorizontalDivider(color = extra.hairline)
         if (records.isEmpty()) Muted(stringResource(R.string.history_empty))
         for (r in records.asReversed()) {
@@ -552,15 +590,63 @@ fun HistoryPage(graph: AppGraph, onBack: () -> Unit) {
         }
         if (records.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    exported = null
+                    exporter.launch("tinnitus-history-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date()) + ".csv")
+                }) { Text(stringResource(R.string.history_export)) }
                 OutlinedButton(onClick = { clipboard.setText(AnnotatedString(graph.tracker.asText())) }) {
                     Text(stringResource(R.string.history_copy))
                 }
+            }
+            exported?.let { Muted(stringResource(if (it) R.string.history_exported else R.string.history_export_failed)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TextButton(onClick = { if (confirmAll) { graph.clearRecords(); confirmAll = false } else confirmAll = true }) {
                     Text(stringResource(if (confirmAll) R.string.history_delete_all_confirm else R.string.history_delete_all), color = extra.warn)
                 }
             }
         }
     }
+}
+
+/** Weekly summaries (outcome D first; masking, comfort and residual inhibition kept separate). */
+@Composable
+private fun WeeklyProgress(records: List<ResponseRecord>) {
+    val weeks = remember(records) { Progress.weeks(records, java.util.TimeZone.getDefault()) }
+    if (weeks.isEmpty()) return
+    val trend = remember(weeks) { Progress.trend(weeks) }
+    fun f(v: Double?) = v?.let { "%.1f".format(it) } ?: "–"
+    Text(stringResource(R.string.weekly_title), style = MaterialTheme.typography.titleMedium)
+    Muted(stringResource(R.string.weekly_intro))
+    if (trend == null) {
+        Muted(stringResource(R.string.weekly_need_more, weeks.count { it.unmaskedCount >= Progress.MIN_RATINGS_PER_WEEK }))
+    } else {
+        val line = when (trend.direction) {
+            LongTermTrend.Direction.LOWER -> R.string.trend_lower
+            LongTermTrend.Direction.STABLE -> R.string.trend_stable
+            LongTermTrend.Direction.HIGHER -> R.string.trend_higher
+        }
+        Text(stringResource(line, trend.baseline, trend.recent), style = MaterialTheme.typography.bodyLarge)
+        if (trend.tinnitusFreeWeeks > 0) Text(stringResource(R.string.trend_free_weeks, trend.tinnitusFreeWeeks), style = MaterialTheme.typography.bodyLarge)
+        Muted(stringResource(R.string.trend_note))
+    }
+    for (w in weeks.takeLast(8).asReversed()) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.week_of, w.startDay), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            if (w.unmaskedCount > 0) {
+                val parts = mutableListOf(stringResource(R.string.week_unmasked, f(w.unmaskedMean), w.unmaskedCount))
+                w.botherMean?.let { parts += stringResource(R.string.week_bother, f(it)) }
+                if (w.tinnitusFreeDays > 0) parts += stringResource(R.string.week_free_days, w.tinnitusFreeDays)
+                Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+            }
+            if (w.maskingMean != null || w.comfortMean != null) {
+                val parts = mutableListOf(stringResource(R.string.week_masking, f(w.maskingMean)))
+                w.comfortMean?.let { parts += stringResource(R.string.week_comfort, f(it)) }
+                Muted(parts.joinToString(" · "))
+            }
+            if (w.riTests > 0) Muted(stringResource(R.string.week_ri, w.riTests, w.riMeanSeconds?.let { "${it.roundToInt()} s" } ?: "–"))
+        }
+    }
+    HorizontalDivider(color = LocalReliefColors.current.hairline)
 }
 
 @Composable
@@ -574,9 +660,11 @@ private fun recordTitle(r: ResponseRecord): String = when (r) {
 
 @Composable
 private fun recordDetail(r: ResponseRecord): String = when (r) {
-    is ResponseRecord.Pitch -> formatHz(r.freqHz) + " · " + r.method + (r.loudnessDbSl?.let { " · %.0f dB".format(it) } ?: "")
+    is ResponseRecord.Pitch -> formatHz(r.freqHz) + " · " + r.method + (r.loudnessDbSl?.let { " · %.0f dB".format(it) } ?: "") +
+        (r.sure?.let { " · " + stringResource(when (it) { 1 -> R.string.pitch_sure_1; 2 -> R.string.pitch_sure_2; else -> R.string.pitch_sure_3 }) } ?: "")
     is ResponseRecord.Relief -> "${r.stimulus} · ${r.minutes} min · ${r.before} → ${r.after ?: "–"} → ${r.later ?: "–"}"
     is ResponseRecord.Ri -> formatHz(r.freqHz) + " · ${r.before} → ${r.after ?: "–"} · " + (r.riSeconds?.let { "${it}s" } ?: ">10 min")
-    is ResponseRecord.Daily -> "${r.rating}/10"
+    is ResponseRecord.Daily -> "${r.rating}/10" + (r.bother?.let { " · " + stringResource(R.string.week_bother, it.toString()) } ?: "") +
+        (if (r.unmasked == false) " · " + stringResource(R.string.rec_daily_masked) else "")
     is ResponseRecord.Effect -> effectDetail(r, stringResource(R.string.variant_original), stringResource(R.string.pz_personalized))
 }

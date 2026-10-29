@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
+import com.tinnitusrelief.app.dsp.PitchProfile
+import java.text.DateFormat
+import java.util.Date
 import com.tinnitusrelief.app.data.SoundKind
 import com.tinnitusrelief.app.dsp.AcousticMode
 import com.tinnitusrelief.app.dsp.SessionLimits
@@ -120,8 +123,15 @@ private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
     val lab by graph.lab.collectAsStateWithLifecycle()
     val state by graph.sessions.state.collectAsStateWithLifecycle()
     val sounds by graph.sounds.collectAsStateWithLifecycle()
+    val records by graph.tracker.records.collectAsStateWithLifecycle()
     val noPitch = stringResource(R.string.pitch_not_set)
     val needsPitch = stringResource(R.string.session_needs_pitch)
+    val profile = remember(records) { PitchProfile.of(records, System.currentTimeMillis()) }
+    val confLabel = profile?.let { stringResource(confidenceLabel(it.confidence)) }
+    val pitchSubtitle = if (profile != null && pitch != null && confLabel != null) stringResource(
+        R.string.pitch_profile, formatHz(pitch!!),
+        DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(profile.latestAtMs)), profile.measurements, confLabel,
+    ) else pitch?.let { formatHz(it) } ?: noPitch
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         ScreenTitle(stringResource(R.string.tab_lab))
@@ -146,7 +156,7 @@ private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
 
         ListHeader(stringResource(R.string.pitch_title))
         RowGroup {
-            ListRow(stringResource(R.string.pitch_guided), subtitle = pitch?.let { formatHz(it) } ?: noPitch, icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_GUIDED) })
+            ListRow(stringResource(R.string.pitch_guided), subtitle = pitchSubtitle, icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_GUIDED) })
             GroupDivider()
             ListRow(stringResource(R.string.pitch_manual), icon = ReliefIcons.Tune, onClick = { open(LabPage.PITCH_MANUAL) })
         }
@@ -274,6 +284,12 @@ private fun modeDescription(m: AcousticMode): Int = when (m) {
     AcousticMode.PURE_TONE -> R.string.mode_tone_desc
     AcousticMode.AM_TONE -> R.string.mode_am_desc
     AcousticMode.FM_TONE -> R.string.mode_fm_desc
+}
+
+fun confidenceLabel(c: PitchProfile.Confidence): Int = when (c) {
+    PitchProfile.Confidence.LOW -> R.string.pitch_conf_low
+    PitchProfile.Confidence.MEDIUM -> R.string.pitch_conf_medium
+    PitchProfile.Confidence.HIGH -> R.string.pitch_conf_high
 }
 
 @Composable

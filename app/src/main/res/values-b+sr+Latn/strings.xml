@@ -171,7 +171,7 @@
     <string name="rt_summary">Pre %1$d, odmah posle %2$d.</string>
     <string name="rate_question">Koliko ti je tinitus primetan upravo sada? (0 = nimalo, 10 = izuzetno)</string>
     <string name="progress_title">Napredak</string>
-    <string name="progress_question">Koliko ti je tinitus danas primetan?</string>
+    <string name="progress_question">Bez ijednog zvuka, koliko ti je tinitus sada primetan?</string>
     <string name="progress_hint">Dovoljna je jedna neobavezna ocena dnevno. Dugoročni trend je važniji od pojedinačnih dana.</string>
     <string name="history_open">Istorija</string>
     <string name="history_title">Istorija</string>
@@ -243,4 +243,36 @@
     <string name="ef_revealed">Ova sesija je puštala: %1$s.</string>
     <string name="ef_summary_row">%1$d sesija · dok svira %2$s · posle %3$s · prijatnost %4$s</string>
     <string name="ef_summary_note">Promene su prosečne razlike u odnosu na ocenu pre. Niže dok svira znači maskiranje, koje prestaje kad zvuk stane; to nije trajno poboljšanje.</string>
+    <string name="progress_playing">Trenutno svira zvuk. Ocena dok zvuk svira meri maskiranje, a ne sam tinitus. Za tačnu dnevnu ocenu prvo pauziraj.</string>
+    <string name="progress_pause">Pauziraj zvuk</string>
+    <string name="progress_masked_saved">Sačuvano kao ocena dok je svirao zvuk. Ne koristi se za dugoročni trend.</string>
+    <string name="progress_bother">Koliko te danas smeta? (neobavezno)</string>
+    <string name="weekly_title">Nedeljni napredak</string>
+    <string name="weekly_intro">Na osnovu dnevnih ocena bez zvuka. Maskiranje i rezidualna inhibicija prikazani su odvojeno jer su privremeni.</string>
+    <string name="weekly_need_more">Za trend su potrebne bar 4 nedelje sa po 3 ili više ocena. Do sada: %1$d.</string>
+    <string name="trend_lower">Niže nego na početku: %1$.1f → %2$.1f</string>
+    <string name="trend_stable">Otprilike isto kao na početku: %1$.1f → %2$.1f</string>
+    <string name="trend_higher">Više nego na početku: %1$.1f → %2$.1f</string>
+    <string name="trend_note">Poredi prve dve i poslednje dve nedelje sa dovoljno ocena. Promena manja od 1 poena smatra se nepromenjenom. Ovo ne pokazuje šta je izazvalo promenu.</string>
+    <string name="trend_free_weeks">Uzastopne nedelje bez tinitusa (po tvojoj proceni): %1$d</string>
+    <string name="week_of">Nedelja od %1$s</string>
+    <string name="week_unmasked">Bez zvuka: %1$s (%2$d ocena)</string>
+    <string name="week_bother">smeta %1$s</string>
+    <string name="week_free_days">%1$d dana ocenjeno sa 0</string>
+    <string name="week_masking">Dok je zvuk svirao: %1$s</string>
+    <string name="week_comfort">prijatnost %1$s</string>
+    <string name="week_ri">Rezidualna inhibicija: %1$d testova, prosek %2$s</string>
+    <string name="history_export">Izvezi CSV</string>
+    <string name="history_exported">Izvezeno</string>
+    <string name="history_export_failed">Izvoz nije uspeo</string>
+    <string name="pitch_sure_question">Koliko si siguran u ovo određivanje?</string>
+    <string name="pitch_sure_1">Nisam siguran</string>
+    <string name="pitch_sure_2">Prilično siguran</string>
+    <string name="pitch_sure_3">Veoma siguran</string>
+    <string name="pitch_sure_hint">Ponavljanje određivanja u različitim danima čini procenu pouzdanijom.</string>
+    <string name="pitch_conf_low">niska pouzdanost</string>
+    <string name="pitch_conf_medium">srednja pouzdanost</string>
+    <string name="pitch_conf_high">visoka pouzdanost</string>
+    <string name="pitch_profile">%1$s · %2$s · %3$d merenja · %4$s</string>
+    <string name="rec_daily_masked">dok je svirao zvuk</string>
 </resources>

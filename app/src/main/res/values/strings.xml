@@ -169,7 +169,7 @@
     <string name="rt_summary">Before %1$d, right after %2$d.</string>
     <string name="rate_question">How noticeable is your tinnitus right now? (0 = not at all, 10 = extremely)</string>
     <string name="progress_title">Progress</string>
-    <string name="progress_question">Today, how noticeable is your tinnitus?</string>
+    <string name="progress_question">With no sound playing, how noticeable is your tinnitus right now?</string>
     <string name="progress_hint">One optional rating per day is enough. Long-term trends matter more than single days.</string>
     <string name="history_open">History</string>
     <string name="history_title">History</string>
@@ -245,4 +245,36 @@
     <string name="ef_revealed">This session played: %1$s.</string>
     <string name="ef_summary_row">%1$d sessions · while playing %2$s · after %3$s · comfort %4$s</string>
     <string name="ef_summary_note">Changes are average differences from the rating before. Lower while playing means masking, which stops when the sound stops; it is not a lasting improvement.</string>
+    <string name="progress_playing">A sound is playing. Ratings taken while a sound plays measure masking, not your tinnitus itself. Pause first for an accurate daily rating.</string>
+    <string name="progress_pause">Pause sound</string>
+    <string name="progress_masked_saved">Saved as a rating taken while sound was playing. It is not used for the long-term trend.</string>
+    <string name="progress_bother">How much does it bother you today? (optional)</string>
+    <string name="weekly_title">Weekly progress</string>
+    <string name="weekly_intro">Based on daily ratings with no sound playing. Masking and residual inhibition are shown separately because they are temporary.</string>
+    <string name="weekly_need_more">A trend needs at least 4 weeks with 3 or more ratings each. So far: %1$d.</string>
+    <string name="trend_lower">Lower than at the start: %1$.1f → %2$.1f</string>
+    <string name="trend_stable">About the same as at the start: %1$.1f → %2$.1f</string>
+    <string name="trend_higher">Higher than at the start: %1$.1f → %2$.1f</string>
+    <string name="trend_note">Compares the first two and the last two qualifying weeks. A change of less than 1 point is treated as no change. This does not show what caused a change.</string>
+    <string name="trend_free_weeks">Self-reported tinnitus-free weeks in a row: %1$d</string>
+    <string name="week_of">Week of %1$s</string>
+    <string name="week_unmasked">No sound: %1$s (%2$d ratings)</string>
+    <string name="week_bother">bother %1$s</string>
+    <string name="week_free_days">%1$d days rated 0</string>
+    <string name="week_masking">While a sound played: %1$s</string>
+    <string name="week_comfort">comfort %1$s</string>
+    <string name="week_ri">Residual inhibition: %1$d tests, avg %2$s</string>
+    <string name="history_export">Export CSV</string>
+    <string name="history_exported">Exported</string>
+    <string name="history_export_failed">Export failed</string>
+    <string name="pitch_sure_question">How sure are you about this match?</string>
+    <string name="pitch_sure_1">Not sure</string>
+    <string name="pitch_sure_2">Fairly sure</string>
+    <string name="pitch_sure_3">Very sure</string>
+    <string name="pitch_sure_hint">Repeating the match on different days makes the estimate more reliable.</string>
+    <string name="pitch_conf_low">low confidence</string>
+    <string name="pitch_conf_medium">medium confidence</string>
+    <string name="pitch_conf_high">high confidence</string>
+    <string name="pitch_profile">%1$s · %2$s · %3$d measurements · %4$s</string>
+    <string name="rec_daily_masked">while sound played</string>
 </resources>

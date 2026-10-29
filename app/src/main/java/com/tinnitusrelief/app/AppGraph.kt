@@ -26,6 +26,8 @@ import com.tinnitusrelief.app.engine.SessionManager
 import com.tinnitusrelief.app.engine.Transport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import com.tinnitusrelief.app.dsp.HistoryExport
+import java.util.TimeZone
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -349,9 +351,41 @@ class AppGraph(private val context: Context) {
 
     // ---------------- tracking ----------------
 
-    fun addDaily(rating: Int) = scope.launch {
+    /**
+     * Daily check-in (outcome D). [unmasked] = no sound was playing when the rating was given. A later
+     * rating on the same day replaces the earlier one; the optional bother rating is kept if not given again.
+     */
+    fun addDaily(rating: Int, bother: Int? = null) = scope.launch {
         val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        tracker.add(ResponseRecord.Daily(System.currentTimeMillis(), day, rating))
+        val previous = tracker.records.value.lastOrNull { it is ResponseRecord.Daily && it.day == day } as ResponseRecord.Daily?
+        tracker.add(ResponseRecord.Daily(System.currentTimeMillis(), day, rating, !_isPlaying.value, bother ?: previous?.bother))
+    }
+
+    /** Adds the optional "how much does it bother you" rating to today's check-in. */
+    fun setDailyBother(bother: Int) = scope.launch {
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val today = tracker.records.value.lastOrNull { it is ResponseRecord.Daily && it.day == day } as ResponseRecord.Daily? ?: return@launch
+        tracker.replace(today.atMs, today.copy(bother = bother))
+    }
+
+    /** Stores how sure the user is about the most recent pitch estimate (1 not sure … 3 very sure). */
+    fun setPitchConfidence(sure: Int) = scope.launch {
+        val last = tracker.records.value.filterIsInstance<ResponseRecord.Pitch>().maxByOrNull { it.atMs } ?: return@launch
+        tracker.replace(last.atMs, last.copy(sure = sure))
+    }
+
+    /** Pauses whatever is playing (used before an unmasked rating). */
+    fun pausePlayback() { transport?.pause() }
+
+    /** Writes the whole history as CSV to a document the user picked. */
+    fun exportCsv(uri: Uri, onDone: (Boolean) -> Unit) = scope.launch {
+        val ok = runCatching {
+            val csv = HistoryExport.csv(tracker.records.value, TimeZone.getDefault())
+            withContext(Dispatchers.IO) {
+                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(csv.toByteArray(Charsets.UTF_8)) } ?: error("no stream")
+            }
+        }.isSuccess
+        onDone(ok)
     }
 
     fun deleteRecord(atMs: Long) = scope.launch { tracker.delete(atMs) }
