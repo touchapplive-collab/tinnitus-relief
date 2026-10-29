@@ -114,3 +114,4 @@ jobs:
               f=tc.find('failure'); out.append(('FAIL ' if f is not None else 'PASS ')+tc.get('classname','').split('.')[-1]+'.'+tc.get('name')+(' :: '+f.text[:600].replace(chr(10),' ') if f is not None else ''))
           print('::notice title=instrumented '+sys.argv[1].split('/')[0]+'::'+'%0A'.join(out))" "$x"
           done
+          exit 0

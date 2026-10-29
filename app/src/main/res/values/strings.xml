@@ -415,4 +415,8 @@
     <string name="rp_import_calibration">Import calibration record</string>
     <string name="rp_imported">%1$d valid records imported</string>
     <string name="rp_authorization_note">Sound stays disabled in this version even with a calibration record. Enabling it needs a separate, approved update after the measurement and reviews.</string>
+    <string name="rp_heard">Heard</string>
+    <string name="rp_not_heard">Not heard</string>
+    <string name="rp_play">Play</string>
+    <string name="rp_resume">Continue the interrupted session</string>
 </resources>

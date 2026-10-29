@@ -413,4 +413,8 @@
     <string name="rp_import_calibration">Uvezi zapis kalibracije</string>
     <string name="rp_imported">Uvezeno ispravnih zapisa: %1$d</string>
     <string name="rp_authorization_note">Zvuk ostaje isključen u ovoj verziji čak i sa zapisom kalibracije. Za uključivanje je potrebno posebno, odobreno ažuriranje posle merenja i pregleda.</string>
+    <string name="rp_heard">Čujem</string>
+    <string name="rp_not_heard">Ne čujem</string>
+    <string name="rp_play">Pusti</string>
+    <string name="rp_resume">Nastavi prekinutu sesiju</string>
 </resources>

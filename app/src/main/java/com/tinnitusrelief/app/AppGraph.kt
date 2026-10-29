@@ -80,6 +80,7 @@ class AppGraph(private val context: Context) {
     val tracker = LocalResponseTracker(context)
     /** Spectral-ripple therapy layer (experimental; audible sessions disabled in this build). */
     val ripple = com.tinnitusrelief.app.ripple.RippleController(context, scope, engine.sampleRate, tracker, { _pitch.value }, { _isPlaying.value })
+        .also { it.sessions = sessions }
     val reliefTest = ReliefTestFlow(scope, sessions, tracker, ::startLabFor, { modeLabel(_lab.value.mode) }, ::mixTitle)
     val riTest = RiTestFlow(scope, sessions, tracker, engine.sampleRate)
     val personalize = PersonalizeFlow(

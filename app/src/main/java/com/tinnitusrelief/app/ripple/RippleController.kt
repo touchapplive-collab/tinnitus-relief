@@ -92,6 +92,7 @@ class RippleController(
     private var ticker: Job? = null
     private var gate: GateResult? = null
     @Volatile private var cancelled = false
+    private var pendingResume = false
 
     val audibleAuthorized: Boolean get() = OutputAuthorization.AUDIBLE_PLAYBACK_AUTHORIZED
 
@@ -161,6 +162,38 @@ class RippleController(
         return after.lock == null
     }
 
+    // ------------------------------------------------------------ listening checks (audible: gated)
+
+    /**
+     * Plays check tones through the experimental layer. Returns false without playing anything unless audible
+     * playback is authorised and the current output has a calibration record (never true in this build).
+     */
+    fun playCheck(tones: List<com.tinnitusrelief.ripple.therapy.CheckTone>, toneMs: Int, gapMs: Int): Boolean {
+        refreshRoute()
+        val voice = CheckVoice.open(tones, sampleRate, toneMs, gapMs, _state.value.calibrationFor(_route.value?.id)) ?: return false
+        val s = sessions ?: return false
+        scope.launch {
+            if (!s.acquire(com.tinnitusrelief.app.engine.LabActivity.RIPPLE, "check", muteMasker = true)) return@launch
+            s.setStimulus(voice, 1f, instant = true)
+            while (!voice.finished) delay(100)
+            s.stop(150)
+        }
+        return true
+    }
+
+    /** Stores the band audibility answers for the current match tone ([P]: any tone not heard → A2). */
+    fun recordAudibility(heard: Map<Double, Boolean>): Boolean? {
+        val pitch = pitchEstimate() ?: return null
+        val row = com.tinnitusrelief.ripple.RippleBandTable.forPitch(pitch.hz)
+        val tones = com.tinnitusrelief.ripple.therapy.AudibilityCheck.tonesFor(row.active, _state.value.hearingProfileDb)
+        val result = com.tinnitusrelief.ripple.therapy.AudibilityCheck.result(tones, heard) ?: return null
+        update { it.copy(a1Audible = result, a1CheckedMatchHz = row.matchHz) }
+        return result
+    }
+
+    /** Set by the app graph: the shared experimental-layer session owner, used by the audible paths. */
+    var sessions: com.tinnitusrelief.app.engine.SessionManager? = null
+
     // ------------------------------------------------------------ gate and outcomes
 
     fun evaluate(rehearsal: Boolean, resume: Boolean = false): GateResult = TherapyGate.evaluate(
@@ -177,11 +210,14 @@ class RippleController(
 
     // ------------------------------------------------------------ session
 
+    /** True if the last session was interrupted recently and may be continued by the user. */
+    fun canResume(rehearsal: Boolean): Boolean = evaluate(rehearsal, resume = true).allowed
+
     /** Opens the pre-session step if the gate allows it. Returns the gate result either way. */
     fun prepare(rehearsal: Boolean, resume: Boolean = false): GateResult {
         refreshRoute()
         val g = evaluate(rehearsal, resume)
-        if (g.allowed && _session.value == null) _session.value = SessionUi(SessionPhase.PRE, rehearsal, g.allowedMs)
+        if (g.allowed && _session.value == null) { pendingResume = resume; _session.value = SessionUi(SessionPhase.PRE, rehearsal, g.allowedMs) }
         return g
     }
 
@@ -191,7 +227,7 @@ class RippleController(
     fun begin(preRating: Int?): Boolean {
         val ui = _session.value ?: return false
         if (ui.phase != SessionPhase.PRE) return false
-        val g = evaluate(ui.rehearsal, gate?.resumedFromStartMs != null)
+        val g = evaluate(ui.rehearsal, pendingResume)
         if (!g.allowed) { _session.value = null; return false }
         // a therapy pre-session rating taken with no sound playing also counts as today's unmasked rating
         if (!ui.rehearsal && preRating != null && !isPlaying()) {
@@ -205,6 +241,11 @@ class RippleController(
         } else {
             // Audible path. Not reachable in this build: the gate blocks first, and the voice cannot be created.
             val voice = RippleVoice.open(sampleRate, limits, _state.value.calibrationFor(_route.value?.id)) ?: run { _session.value = null; return false }
+            val sm = sessions ?: run { _session.value = null; return false }
+            scope.launch {
+                if (sm.acquire(com.tinnitusrelief.app.engine.LabActivity.RIPPLE, "Spectral ripple", muteMasker = true)) sm.setStimulus(voice, 1f, instant = true)
+                else voice.engine.interrupt(Interruption.SERVICE_STOPPED)
+            }
             voice.engine
         }
         if (!e.start(g, SecureRandom().nextLong())) { e.release(); _session.value = null; return false }
@@ -258,6 +299,20 @@ class RippleController(
         _session.value = _session.value?.copy(phase = SessionPhase.POST, elapsedMs = rec.audioMs, endReason = rec.reason, interruption = rec.interruption)
         engine?.release(); engine = null
         cancelled = true
+        if (!rehearsal) sessions?.let { if (it.state.value?.activity == com.tinnitusrelief.app.engine.LabActivity.RIPPLE) it.stop(150) }
+    }
+
+    /**
+     * Continues an interrupted session (explicit user action, within the resume window, inside the same 60 min)
+     * instead of closing it with a report. The original before-rating is kept for the stop rule.
+     */
+    fun resume(): Boolean {
+        val s = _session.value ?: return false
+        if (s.phase != SessionPhase.POST || s.endReason != EndReason.INTERRUPTED) return false
+        if (!canResume(s.rehearsal)) return false
+        _session.value = null
+        if (!prepare(s.rehearsal, resume = true).allowed) return false
+        return begin(s.preRating)
     }
 
     /** After-session ratings and symptoms; applies the stop rules. */

@@ -121,6 +121,24 @@ class RippleFlowTest {
         rule.waitUntil(5_000) { graph.ripple.session.value?.phase == SessionPhase.POST }
         assertEquals(EndReason.INTERRUPTED, graph.ripple.session.value?.endReason)
         assertEquals(Interruption.BECOMING_NOISY, graph.ripple.session.value?.interruption)
+        // never resumes by itself …
+        Thread.sleep(1_500)
+        assertEquals(SessionPhase.POST, graph.ripple.session.value?.phase)
+        // … but the user may continue it, inside the same 60 minutes
+        var resumed = false
+        rule.runOnUiThread { resumed = graph.ripple.resume() }
+        assertTrue(resumed)
+        rule.waitUntil(5_000) { graph.ripple.session.value?.phase == SessionPhase.RUNNING }
+        assertTrue(graph.ripple.session.value!!.allowedMs < 60 * 60_000L)
+        rule.waitUntil(10_000) { (graph.ripple.session.value?.elapsedMs ?: 0) >= 1_000 }
+        rule.runOnUiThread { graph.ripple.stop() }
+        rule.waitUntil(5_000) { graph.ripple.session.value?.phase == SessionPhase.POST }
         rule.runOnUiThread { graph.ripple.submitReport(6, emptySet()) }
+        val l = graph.ripple.rehearsalLedger.value
+        assertEquals(2, l.sessions.size)
+        assertEquals(l.sessions[0].startMs, l.sessions[1].resumedFromStartMs)
+        assertEquals(6, l.sessions[1].report?.before)
+        // a symptom report locks (rehearsal ledger here; the therapy ledger uses the same rule)
+        assertEquals(null, l.lock)
     }
 }

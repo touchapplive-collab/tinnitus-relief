@@ -297,8 +297,16 @@ private fun ProfilePage(graph: AppGraph, onBack: () -> Unit) {
             }
         }
         Muted(stringResource(R.string.rp_profile_locked))
-        OutlinedButton(onClick = {}, enabled = c.audibleAuthorized, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rp_profile_listen)) }
-        Muted(stringResource(R.string.rp_needs_sound_long))
+        Text(stringResource(R.string.rp_profile_listen), style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            for (db in c.limits.allowedHearingProfilesDb.sorted()) {
+                OutlinedButton(
+                    onClick = { c.playCheck(com.tinnitusrelief.ripple.therapy.HearingCheck.sequence(db), com.tinnitusrelief.ripple.therapy.HearingCheck.TONE_MS, com.tinnitusrelief.ripple.therapy.HearingCheck.GAP_MS) },
+                    enabled = c.audibleAuthorized,
+                ) { Text(stringResource(R.string.rp_profile_value, db.toInt())) }
+            }
+        }
+        if (!c.audibleAuthorized) Muted(stringResource(R.string.rp_needs_sound_long))
     }
 }
 
@@ -315,9 +323,24 @@ private fun AudibilityPage(graph: AppGraph, onBack: () -> Unit) {
         val row = RippleBandTable.forPitch(pitch.hz)
         Text(stringResource(R.string.rp_audibility_band, bandText(row.active)), style = MaterialTheme.typography.titleMedium)
         val tones = AudibilityCheck.tonesFor(row.active, st.hearingProfileDb)
-        Muted(tones.joinToString(" · ") { formatHz(it.hz) })
-        OutlinedButton(onClick = {}, enabled = c.audibleAuthorized, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rp_audibility_play)) }
-        Muted(stringResource(R.string.rp_needs_sound_long))
+        val heard = remember(row.matchHz) { mutableStateMapOf<Double, Boolean>() }
+        val played = remember(row.matchHz) { mutableStateMapOf<Double, Boolean>() }
+        val yes = stringResource(R.string.rp_heard); val no = stringResource(R.string.rp_not_heard)
+        for (t in tones) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(formatHz(t.hz), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { if (c.playCheck(listOf(t), AudibilityCheck.TONE_MS, 0)) played[t.hz] = true }, enabled = c.audibleAuthorized) {
+                    Text(stringResource(R.string.rp_play))
+                }
+            }
+            if (played[t.hz] == true) ChoiceRow(listOf(true, false), heard[t.hz], { if (it) yes else no }) { heard[t.hz] = it }
+        }
+        if (!c.audibleAuthorized) Muted(stringResource(R.string.rp_needs_sound_long))
+        Button(
+            onClick = { c.recordAudibility(heard.toMap()); onBack() },
+            enabled = tones.all { it.hz in heard },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text(stringResource(R.string.rp_save)) }
         st.a1AudibleFor(pitch.hz)?.let { Text(stringResource(if (it) R.string.rp_audibility_ok else R.string.rp_audibility_alt)) }
     }
 }
@@ -378,6 +401,10 @@ private fun SessionPage(graph: AppGraph, rehearsal: Boolean, onBack: () -> Unit)
         when (s?.phase) {
             null -> {
                 val g = remember(ledger) { c.evaluate(rehearsal) }
+                val resumable = remember(ledger) { c.canResume(rehearsal) }
+                if (resumable) {
+                    OutlinedButton(onClick = { c.prepare(rehearsal, resume = true) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rp_resume)) }
+                }
                 if (g.allowed) {
                     Body(stringResource(R.string.rp_session_intro, (g.allowedMs / 60_000).toInt()))
                     Button(onClick = { c.prepare(rehearsal) }, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("rp_prepare")) { Text(stringResource(R.string.rp_continue)) }
@@ -413,6 +440,9 @@ private fun SessionPage(graph: AppGraph, rehearsal: Boolean, onBack: () -> Unit)
             SessionPhase.POST -> {
                 Eyebrow(stringResource(endText(s.endReason)))
                 Text(stringResource(R.string.rp_listened, mmss(s.elapsedMs)), style = MaterialTheme.typography.bodyLarge)
+                if (s.endReason == EndReason.INTERRUPTED && remember(s) { c.canResume(s.rehearsal) }) {
+                    OutlinedButton(onClick = { c.resume() }, modifier = Modifier.fillMaxWidth().testTag("rp_resume")) { Text(stringResource(R.string.rp_resume)) }
+                }
                 var after by remember { mutableStateOf<Int?>(null) }
                 val symptoms = remember { mutableStateMapOf<AdverseSymptom, Boolean>() }
                 Text(stringResource(R.string.rp_after_question), style = MaterialTheme.typography.titleMedium)
