@@ -81,6 +81,7 @@ fun ReliefScreen(
     onPlayPause: () -> Unit,
     onOpenSounds: () -> Unit,
     @Suppress("UNUSED_PARAMETER") onOpenLab: () -> Unit,
+    onPersonalize: () -> Unit = {},
 ) {
     val mix by graph.mix.collectAsStateWithLifecycle()
     val sounds by graph.sounds.collectAsStateWithLifecycle()
@@ -113,6 +114,18 @@ fun ReliefScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = muted,
         )
+
+        // Original | My Shower | … : switch versions of the first sound that has personalised versions
+        val variantEntry = remember(mix, sounds) { mix.firstOrNull { graph.variantsOf(it.soundId).isNotEmpty() } }
+        if (variantEntry != null) {
+            val versions = remember(variantEntry, sounds) { graph.variantsOf(variantEntry.soundId) }
+            val originalLabel = stringResource(R.string.variant_original)
+            Spacer(Modifier.height(14.dp))
+            ChoiceRow(versions.map { it.id }, variantEntry.soundId, { id ->
+                val v = versions.first { it.id == id }
+                if (v.baseId == null) originalLabel else v.name
+            }) { id -> graph.switchVariant(variantEntry.soundId, id) }
+        }
 
         Spacer(Modifier.height(22.dp))
         Hero(playing = playing, enabled = controlsReady && mix.isNotEmpty(), onPlayPause = onPlayPause)
@@ -155,6 +168,14 @@ fun ReliefScreen(
                 icon = ReliefIcons.Library,
                 onClick = onOpenSounds,
             )
+            if (mix.isNotEmpty()) {
+                GroupDivider()
+                ListRow(
+                    title = stringResource(R.string.pz_entry),
+                    icon = ReliefIcons.Tune,
+                    onClick = onPersonalize,
+                )
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

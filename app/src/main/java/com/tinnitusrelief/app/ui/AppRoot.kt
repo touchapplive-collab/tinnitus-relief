@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -42,6 +45,8 @@ private const val TAB_SETTINGS = 2
 fun AppRoot(graph: AppGraph, controlsReady: Boolean, onPlayPause: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(TAB_RELIEF) }
     var showSounds by rememberSaveable { mutableStateOf(false) }
+    var personalizeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var choosePersonalize by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { graph.messages.collect { snackbar.showSnackbar(it) } }
@@ -67,18 +72,44 @@ fun AppRoot(graph: AppGraph, controlsReady: Boolean, onPlayPause: () -> Unit) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             Crossfade(targetState = tab, animationSpec = tween(280), label = "tab") { t ->
                 when (t) {
-                    TAB_RELIEF -> ReliefScreen(
-                        graph = graph,
-                        controlsReady = controlsReady,
-                        onPlayPause = onPlayPause,
-                        onOpenSounds = { showSounds = true },
-                        onOpenLab = { tab = TAB_LAB },
-                    )
+                    TAB_RELIEF -> {
+                        val pid = personalizeId
+                        if (pid != null) {
+                            PersonalizeScreen(graph, pid, onClose = { personalizeId = null })
+                        } else ReliefScreen(
+                            graph = graph,
+                            controlsReady = controlsReady,
+                            onPlayPause = onPlayPause,
+                            onOpenSounds = { showSounds = true },
+                            onOpenLab = { tab = TAB_LAB },
+                            onPersonalize = {
+                                val m = graph.mix.value
+                                if (m.size == 1) personalizeId = m.first().soundId else if (m.size > 1) choosePersonalize = true
+                            },
+                        )
+                    }
                     TAB_LAB -> LabScreen(graph)
                     else -> SettingsScreen(graph, onReplaceShower = { showerLauncher.launch(arrayOf("audio/*")) })
                 }
             }
         }
+    }
+
+    if (choosePersonalize) {
+        val names = graph.mix.value.mapNotNull { e -> graph.sounds.value.firstOrNull { it.id == e.soundId } }
+        AlertDialog(
+            onDismissRequest = { choosePersonalize = false },
+            title = { Text(stringResource(R.string.pz_choose)) },
+            text = {
+                Column {
+                    for (snd in names) {
+                        ListRow(snd.name, chevron = true, onClick = { choosePersonalize = false; personalizeId = snd.id })
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosePersonalize = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 
     if (showSounds) {

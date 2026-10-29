@@ -2,6 +2,8 @@ package com.tinnitusrelief.app.ui
 
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.Arrangement
@@ -265,5 +267,52 @@ fun ResponseCurve(bands: List<Band>, pitchHz: Double?, transitionOctaves: Double
         }
         drawPath(p, accent, style = Stroke(width = 2.5f))
         if (pitchHz != null) drawLine(mark, Offset(x(pitchHz), 0f), Offset(x(pitchHz), size.height), 2f)
+    }
+}
+
+/** Large listen button used by A/B comparisons: tap to play, tap again to stop; thin bar shows progress. */
+@Composable
+fun ListenTile(
+    label: String,
+    playing: Boolean,
+    progress: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(128.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = if (selected || playing) scheme.primaryContainer else scheme.surfaceContainerLowest,
+        contentColor = if (selected || playing) scheme.onPrimaryContainer else scheme.onSurface,
+        border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, scheme.primary) else null,
+    ) {
+        androidx.compose.foundation.layout.Box {
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 26.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                androidx.compose.material3.Icon(
+                    if (playing) ReliefIcons.Stop else ReliefIcons.Play,
+                    contentDescription = null,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(28.dp),
+                )
+                Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            }
+            if (playing) {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.align(Alignment.BottomStart)
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                        .fillMaxWidth(progress.coerceIn(0.02f, 1f))
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(scheme.primary),
+                )
+            }
+        }
     }
 }

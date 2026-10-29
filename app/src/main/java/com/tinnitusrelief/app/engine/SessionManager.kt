@@ -22,7 +22,7 @@ interface Transport {
     fun pause()
 }
 
-enum class LabActivity { SESSION, MATCHING, RI_TEST, RELIEF_TEST }
+enum class LabActivity { SESSION, MATCHING, RI_TEST, RELIEF_TEST, PERSONALIZE, EFFECT }
 
 data class LabState(val activity: LabActivity, val label: String, val totalMs: Long, val endsAtElapsed: Long?)
 
@@ -70,10 +70,10 @@ class SessionManager(
     }
 
     /** Sets the Layer B voice immediately at [gain] (used for short test tones whose level is in the voice). */
-    fun setStimulus(voice: Voice?, gain: Float) {
+    fun setStimulus(voice: Voice?, gain: Float, instant: Boolean = false) {
         rampJob?.cancel()
         currentGain = gain
-        engine.mixer.setLayerB(voice, gain)
+        engine.mixer.setLayerB(voice, gain, instant)
     }
 
     /** Smoothly changes Layer B gain (user moving a slider). */

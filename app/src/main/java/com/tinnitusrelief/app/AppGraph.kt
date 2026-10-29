@@ -17,7 +17,9 @@ import com.tinnitusrelief.app.engine.AcousticProcessingEngine
 import com.tinnitusrelief.app.engine.FrequencyMatchingEngine
 import com.tinnitusrelief.app.engine.LabActivity
 import com.tinnitusrelief.app.engine.LocalResponseTracker
+import com.tinnitusrelief.app.engine.EffectFlow
 import com.tinnitusrelief.app.engine.MaskerEngine
+import com.tinnitusrelief.app.engine.PersonalizeFlow
 import com.tinnitusrelief.app.engine.ReliefTestFlow
 import com.tinnitusrelief.app.engine.RiTestFlow
 import com.tinnitusrelief.app.engine.SessionManager
@@ -76,6 +78,13 @@ class AppGraph(private val context: Context) {
     val tracker = LocalResponseTracker(context)
     val reliefTest = ReliefTestFlow(scope, sessions, tracker, ::startLabFor, { modeLabel(_lab.value.mode) }, ::mixTitle)
     val riTest = RiTestFlow(scope, sessions, tracker, engine.sampleRate)
+    val personalize = PersonalizeFlow(
+        scope, engine, library, sessions,
+        reliefVolume = { _volume.value },
+        loadSaved = { settings.snapshot()[SettingsStore.PERSONALIZE_SESSION] },
+        storeSaved = { v -> if (v == null) settings.remove(SettingsStore.PERSONALIZE_SESSION) else settings.putString(SettingsStore.PERSONALIZE_SESSION, v) },
+    )
+    val effect = EffectFlow(scope, engine, library, sessions, tracker, { _volume.value }, { context.getString(R.string.effect_test_label) })
 
     // ---------------- relief state ----------------
 
@@ -166,6 +175,42 @@ class AppGraph(private val context: Context) {
         scope.launch { settings.putString(SettingsStore.PRESETS, MixCodec.encodePresets(next)) }
     }
 
+    // ---------------- relief: personalised sounds ----------------
+
+    /** The original and its personalised versions, when [soundId] has any (else empty). */
+    fun variantsOf(soundId: String): List<Sound> {
+        val root = library.find(soundId)?.rootId ?: return emptyList()
+        val variants = library.variantsOf(root)
+        if (variants.isEmpty()) return emptyList()
+        return listOfNotNull(library.find(root)) + variants
+    }
+
+    /** Switches a sound in the mix to another version of it (Original ↔ personalised), instantly and smoothly. */
+    fun switchVariant(fromId: String, toId: String) {
+        masker.replace(fromId, toId)
+        persistMix()
+    }
+
+    /** Default name for a new personalised version: "My Shower", "My Shower 2", … */
+    fun newPersonalName(base: Sound): String {
+        val first = context.getString(R.string.personal_name, base.name)
+        val taken = library.variantsOf(base.id).map { it.name }.toSet()
+        if (first !in taken) return first
+        var i = 2
+        while ("$first $i" in taken) i++
+        return "$first $i"
+    }
+
+    /** Saves the personalisation result and puts it in the mix in place of the version that was there. */
+    fun savePersonalized(name: String) = scope.launch {
+        val base = personalize.state.value.base ?: return@launch
+        val sound = personalize.saveResult(name.trim().ifEmpty { newPersonalName(base) }) ?: return@launch
+        val inMix = mix.value.firstOrNull { library.find(it.soundId)?.rootId == base.id }
+        if (inMix != null) masker.replace(inMix.soundId, sound.id) else if (!masker.toggle(sound.id)) masker.solo(sound.id)
+        persistMix()
+        messages.tryEmit(context.getString(R.string.msg_personal_saved, sound.name))
+    }
+
     // ---------------- relief: volume & timer ----------------
 
     fun setVolume(v: Float) { _volume.value = v; engine.setMasterVolume(v) }
@@ -230,8 +275,11 @@ class AppGraph(private val context: Context) {
     }
 
     fun delete(sound: Sound) = scope.launch {
+        val inMix = mix.value.any { it.soundId == sound.id }
         withContext(Dispatchers.IO) { library.delete(sound) }
-        masker.prune()
+        // a deleted personalised version in the mix is replaced by its original
+        val base = sound.baseId
+        if (inMix && base != null && library.find(base) != null) masker.replace(sound.id, base) else masker.prune()
         if (mix.value.isEmpty()) masker.applyMix(listOf(MixEntry(SoundLibrary.SHOWER, 0.8f)))
         persistMix()
     }

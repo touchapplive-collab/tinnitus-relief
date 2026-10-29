@@ -11,12 +11,14 @@ import com.tinnitusrelief.app.audio.Seamless
 import com.tinnitusrelief.app.audio.PcmDecoder
 import com.tinnitusrelief.app.audio.PcmLoopVoice
 import com.tinnitusrelief.app.audio.Voice
+import com.tinnitusrelief.app.dsp.EqProfile
+import com.tinnitusrelief.app.dsp.EqVoice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import java.io.IOException
 
-enum class SoundKind { BUILT_IN, GENERATED, IMPORTED }
+enum class SoundKind { BUILT_IN, GENERATED, IMPORTED, PERSONALIZED }
 
 data class Sound(
     val id: String,
@@ -24,7 +26,13 @@ data class Sound(
     val kind: SoundKind,
     /** For the shower: true when the user replaced the bundled recording with their own. */
     val customized: Boolean = false,
-)
+    /** For a personalised sound: the original it is based on, and its stored balance. */
+    val baseId: String? = null,
+    val profile: EqProfile? = null,
+) {
+    /** The original this sound comes from (itself, for an original). */
+    val rootId: String get() = baseId ?: id
+}
 
 /**
  * The offline sound library. Everything lives inside the app's private storage:
@@ -38,6 +46,23 @@ class SoundLibrary(private val context: Context) {
     private val dir = File(context.filesDir, "sounds").apply { mkdirs() }
     private val importDir = File(dir, "imported").apply { mkdirs() }
     private val customShower = File(dir, "shower_custom")
+    /** Personalised sounds: one line per sound (id, base id, name, balance). No audio is duplicated. */
+    private val personalizedFile = File(dir, "personalized.tsv")
+
+    private data class Personal(val id: String, val baseId: String, val name: String, val profile: EqProfile)
+
+    private fun readPersonal(): List<Personal> = runCatching {
+        if (!personalizedFile.exists()) emptyList() else personalizedFile.readLines().mapNotNull { line ->
+            val p = line.split('\t')
+            if (p.size != 4) null else EqProfile.decode(p[3])?.let { Personal(p[0], p[1], p[2], it) }
+        }
+    }.getOrDefault(emptyList())
+
+    private fun writePersonal(list: List<Personal>) {
+        val tmp = File(dir, "personalized.tmp")
+        tmp.writeText(list.joinToString("\n") { "${it.id}\t${it.baseId}\t${it.name.replace('\t', ' ').replace('\n', ' ')}\t${it.profile.encode()}" })
+        if (!tmp.renameTo(personalizedFile)) { personalizedFile.delete(); tmp.renameTo(personalizedFile) }
+    }
 
     private val _sounds = MutableStateFlow<List<Sound>>(emptyList())
     val sounds: StateFlow<List<Sound>> = _sounds
@@ -53,7 +78,14 @@ class SoundLibrary(private val context: Context) {
         importDir.listFiles()?.sortedBy { it.lastModified() }?.forEach {
             list += Sound(FILE_PREFIX + it.name, it.nameWithoutExtension, SoundKind.IMPORTED)
         }
-        _sounds.value = list
+        // personalised versions are listed right after their original; orphans (deleted original) are dropped
+        val personal = readPersonal()
+        val out = ArrayList<Sound>()
+        for (s in list) {
+            out += s
+            for (p in personal.filter { it.baseId == s.id }) out += Sound(p.id, p.name, SoundKind.PERSONALIZED, baseId = s.id, profile = p.profile)
+        }
+        _sounds.value = out
     }
 
     fun find(id: String?): Sound? = _sounds.value.firstOrNull { it.id == id }
@@ -76,6 +108,10 @@ class SoundLibrary(private val context: Context) {
 
     /** Builds a fresh real-time voice for a sound. Call off the main thread: decoding can take a moment. */
     fun createVoice(sound: Sound, outputRate: Int): Voice {
+        if (sound.kind == SoundKind.PERSONALIZED) {
+            val base = find(sound.baseId) ?: throw IOException("Original missing")
+            return EqVoice(createVoice(base, outputRate), outputRate, sound.profile ?: EqProfile.FLAT)
+        }
         val pcm = when (sound.id) {
             WHITE -> return NoiseVoice(NoiseColor.WHITE)
             PINK -> return NoiseVoice(NoiseColor.PINK)
@@ -131,11 +167,28 @@ class SoundLibrary(private val context: Context) {
     }
 
     fun delete(sound: Sound) {
-        if (sound.kind != SoundKind.IMPORTED) return
-        File(importDir, sound.id.removePrefix(FILE_PREFIX)).delete()
-        invalidate(sound.id)
+        when (sound.kind) {
+            SoundKind.PERSONALIZED -> writePersonal(readPersonal().filterNot { it.id == sound.id })
+            SoundKind.IMPORTED -> {
+                File(importDir, sound.id.removePrefix(FILE_PREFIX)).delete()
+                invalidate(sound.id)
+                writePersonal(readPersonal().filterNot { it.baseId == sound.id })
+            }
+            else -> return
+        }
         refresh()
     }
+
+    /** Saves a personalised version of [baseId] and returns it. Only the balance is stored. */
+    fun savePersonalized(baseId: String, name: String, profile: EqProfile): Sound {
+        val id = "personal:" + java.util.UUID.randomUUID().toString().take(8)
+        writePersonal(readPersonal() + Personal(id, baseId, name, profile))
+        refresh()
+        return find(id)!!
+    }
+
+    /** Personalised versions of [baseId], oldest first. */
+    fun variantsOf(baseId: String): List<Sound> = _sounds.value.filter { it.baseId == baseId }
 
     private fun copy(uri: Uri, target: File) {
         val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Cannot open file")

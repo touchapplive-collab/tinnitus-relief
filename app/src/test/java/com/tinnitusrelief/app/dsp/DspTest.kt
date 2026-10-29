@@ -336,9 +336,29 @@ class DspTest {
             ResponseRecord.Ri(3, 4000.0, 60, 10, 6, 2, "quieter", 45),
             ResponseRecord.Daily(4, "2026-10-28", 5),
             ResponseRecord.Relief(5, "x", 10, 6, null, null, null),
+            ResponseRecord.Effect(6, "My Shower", "personalized", 10, 6, 3, 5, 8),
+            ResponseRecord.Effect(7, "My Shower", "original", 10, null, 4, null, null),
         )
         val text = recs.joinToString("\n") { ResponseCodec.encode(it) } + "\ngarbage line\nRI\tat=x\n"
         assertEquals(recs, ResponseCodec.decodeAll(text))
+    }
+
+    @Test fun effectivenessSummaryAndBalancedRandomOrder() {
+        val recs = listOf(
+            ResponseRecord.Effect(1, "My Shower", "original", 10, 6, 4, 6, 7),
+            ResponseRecord.Effect(2, "My Shower", "personalized", 10, 6, 2, 5, 8),
+            ResponseRecord.Effect(3, "My Shower", "personalized", 10, 7, 3, null, null),
+            ResponseRecord.Effect(4, "Other", "original", 10, 9, 0, 0, 0),
+        )
+        val s = EffectSummary.of(recs, "My Shower")
+        assertEquals(1, s[0].sessions); assertEquals(2.0, s[0].maskingDrop!!, 1e-9); assertEquals(0.0, s[0].afterDrop!!, 1e-9)
+        assertEquals(2, s[1].sessions); assertEquals(4.0, s[1].maskingDrop!!, 1e-9); assertEquals(1.0, s[1].afterDrop!!, 1e-9)
+        assertEquals(8.0, s[1].comfort!!, 1e-9)
+        // balanced: original was used less → original next; on a tie both orders occur
+        assertEquals("original", EffectSummary.nextVariant(recs, "My Shower", java.util.Random(1)))
+        val tie = recs.take(2)
+        val seen = (0L until 20L).map { EffectSummary.nextVariant(tie, "My Shower", java.util.Random(it * 1_000_003L + 7919L)) }.toSet()
+        assertEquals(setOf("original", "personalized"), seen)
     }
 
     // ---------------- mixer with all layers ----------------

@@ -21,6 +21,7 @@ class SettingsStore(private val context: Context) {
     suspend fun putFloat(key: Preferences.Key<Float>, v: Float) = context.dataStore.edit { it[key] = v }
     suspend fun putInt(key: Preferences.Key<Int>, v: Int) = context.dataStore.edit { it[key] = v }
     suspend fun putBoolean(key: Preferences.Key<Boolean>, v: Boolean) = context.dataStore.edit { it[key] = v }
+    suspend fun remove(key: Preferences.Key<*>) = context.dataStore.edit { it.remove(key) }
 
     companion object {
         /** Conservative first-run level: about −26 dB below the source material. */
@@ -33,5 +34,6 @@ class SettingsStore(private val context: Context) {
         val LAB = stringPreferencesKey("lab_settings")
         val LAB_ACK = booleanPreferencesKey("lab_acknowledged")
         val PITCH = floatPreferencesKey("pitch_hz")
+        val PERSONALIZE_SESSION = stringPreferencesKey("personalize_session")
     }
 }

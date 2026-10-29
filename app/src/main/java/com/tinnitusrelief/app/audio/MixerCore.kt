@@ -108,11 +108,12 @@ class MixerCore(val sampleRate: Int) {
      * Sets the experimental stimulus voice (null = off) with a crossfade. Its gain is capped at
      * [LAYER_B_MAX] (−6 dB) so the experimental layer can never be driven to full scale by the UI.
      */
-    fun setLayerB(voice: Voice?, gain: Float) {
+    fun setLayerB(voice: Voice?, gain: Float, instant: Boolean = false) {
         if (voice != null) stimulusVolume.target = gain.coerceIn(0f, LAYER_B_MAX)
         post {
             for (c in stimulus) c.xfTarget = 0f
-            if (voice != null) stimulus.add(Channel("b", voice, GainParam(1f)).also { if (fade == 0f) it.xf = 1f })
+            // [instant]: the voice is silent until told otherwise (it has its own fades), so skip the crossfade
+            if (voice != null) stimulus.add(Channel("b", voice, GainParam(1f)).also { if (fade == 0f || instant) it.xf = 1f })
         }
     }
 

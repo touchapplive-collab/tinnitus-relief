@@ -64,6 +64,14 @@ class MaskerEngine(
         applyMix(listOf(keep))
     }
 
+    /** Swaps one sound for another (e.g. Original ↔ personalised) keeping its volume; crossfades smoothly. */
+    fun replace(fromId: String, toId: String) {
+        if (fromId == toId) return
+        val cur = _mix.value
+        if (cur.none { it.soundId == fromId }) return
+        applyMix(cur.filterNot { it.soundId == toId }.map { if (it.soundId == fromId) it.copy(soundId = toId) else it })
+    }
+
     fun setVolume(soundId: String, v: Float) {
         _mix.value = _mix.value.map { if (it.soundId == soundId) it.copy(volume = v) else it }
         params[soundId]?.target = MixerCore.sliderToGain(v)

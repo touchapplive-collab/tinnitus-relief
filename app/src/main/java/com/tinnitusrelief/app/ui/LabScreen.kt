@@ -39,13 +39,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
+import com.tinnitusrelief.app.data.SoundKind
 import com.tinnitusrelief.app.dsp.AcousticMode
 import com.tinnitusrelief.app.dsp.SessionLimits
 import com.tinnitusrelief.app.engine.LabActivity
 import com.tinnitusrelief.app.ui.theme.LocalReliefColors
 import kotlin.math.roundToInt
 
-enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, ENGINE, RI, RELIEF, HISTORY }
+enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, ENGINE, RI, RELIEF, HISTORY, EFFECT }
 
 @Composable
 fun LabScreen(graph: AppGraph) {
@@ -63,6 +64,7 @@ fun LabScreen(graph: AppGraph) {
         LabPage.RI -> RiTestPage(graph, back)
         LabPage.RELIEF -> ReliefTestPage(graph, back)
         LabPage.HISTORY -> HistoryPage(graph, back)
+        LabPage.EFFECT -> EffectPage(graph, back)
     }
 }
 
@@ -117,6 +119,7 @@ private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
     val pitch by graph.pitch.collectAsStateWithLifecycle()
     val lab by graph.lab.collectAsStateWithLifecycle()
     val state by graph.sessions.state.collectAsStateWithLifecycle()
+    val sounds by graph.sounds.collectAsStateWithLifecycle()
     val noPitch = stringResource(R.string.pitch_not_set)
     val needsPitch = stringResource(R.string.session_needs_pitch)
 
@@ -167,6 +170,10 @@ private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
                 subtitle = if (pitch == null) needsPitch else stringResource(R.string.ri_short),
                 onClick = if (pitch != null) ({ open(LabPage.RI) }) else null,
             )
+            if (sounds.any { it.kind == SoundKind.PERSONALIZED }) {
+                GroupDivider()
+                ListRow(stringResource(R.string.ef_title), subtitle = stringResource(R.string.ef_short), onClick = { open(LabPage.EFFECT) })
+            }
         }
 
         ListHeader(stringResource(R.string.progress_title))

@@ -30,6 +30,23 @@ sealed class ResponseRecord {
         val riSeconds: Int?,
     ) : ResponseRecord()
 
+    /**
+     * One session of the "original vs personalised" comparison. [variant] is "original" or "personalized";
+     * the app picks it (balanced, random order) and does not show it while the sound plays.
+     * [during] = noticeability while the sound plays (masking), [after] = right after it stopped,
+     * [comfort] = how comfortable the sound was (0–10). Every rating is optional.
+     */
+    data class Effect(
+        override val atMs: Long,
+        val preset: String,
+        val variant: String,
+        val minutes: Int,
+        val before: Int?,
+        val during: Int?,
+        val after: Int?,
+        val comfort: Int?,
+    ) : ResponseRecord()
+
     /** One optional check-in per day, for long-term tracking. */
     data class Daily(override val atMs: Long, val day: String, val rating: Int) : ResponseRecord()
 }
@@ -47,6 +64,10 @@ object ResponseCodec {
             is ResponseRecord.Relief -> { m["stim"] = r.stimulus; m["min"] = r.minutes; m["before"] = r.before; m["after"] = r.after; m["later"] = r.later; m["laterMin"] = r.laterMinutes; "RELIEF" }
             is ResponseRecord.Ri -> { m["f"] = r.freqHz; m["sec"] = r.stimulusSeconds; m["extra"] = r.extraDb; m["before"] = r.before; m["after"] = r.after; m["outcome"] = r.outcome; m["ri"] = r.riSeconds; "RI" }
             is ResponseRecord.Daily -> { m["day"] = r.day; m["rating"] = r.rating; "DAILY" }
+            is ResponseRecord.Effect -> {
+                m["preset"] = r.preset; m["variant"] = r.variant; m["min"] = r.minutes; m["before"] = r.before
+                m["during"] = r.during; m["after"] = r.after; m["comfort"] = r.comfort; "EFFECT"
+            }
         }
         val sb = StringBuilder(type).append("\tat=").append(r.atMs)
         for ((k, v) in m) if (v != null) sb.append('\t').append(k).append('=').append(escape(v.toString()))
@@ -70,6 +91,10 @@ object ResponseCodec {
                 m.getValue("before").toInt(), m["after"]?.toInt(), m["outcome"] ?: "", m["ri"]?.toInt(),
             )
             "DAILY" -> ResponseRecord.Daily(at, m.getValue("day"), m.getValue("rating").toInt())
+            "EFFECT" -> ResponseRecord.Effect(
+                at, m.getValue("preset"), m.getValue("variant"), m.getValue("min").toInt(), m["before"]?.toInt(),
+                m["during"]?.toInt(), m["after"]?.toInt(), m["comfort"]?.toInt(),
+            )
             else -> null
         }
     } catch (e: Exception) {
@@ -91,5 +116,44 @@ object ResponseCodec {
             } else { sb.append(c); i++ }
         }
         return sb.toString()
+    }
+}
+
+/** Summary of "original vs personalised" sessions for one personalised sound. */
+data class EffectSummary(val variant: String, val sessions: Int, val maskingDrop: Double?, val afterDrop: Double?, val comfort: Double?) {
+    companion object {
+        const val ORIGINAL = "original"
+        const val PERSONALIZED = "personalized"
+
+        /** Mean drop in noticeability while playing and after stopping, and mean comfort, per variant. */
+        fun of(records: List<ResponseRecord>, preset: String): List<EffectSummary> {
+            val e = records.filterIsInstance<ResponseRecord.Effect>().filter { it.preset == preset }
+            return listOf(ORIGINAL, PERSONALIZED).map { v ->
+                val s = e.filter { it.variant == v }
+                fun mean(xs: List<Int>) = if (xs.isEmpty()) null else xs.average()
+                EffectSummary(
+                    v, s.size,
+                    mean(s.mapNotNull { r -> r.before?.let { b -> r.during?.let { b - it } } }),
+                    mean(s.mapNotNull { r -> r.before?.let { b -> r.after?.let { b - it } } }),
+                    mean(s.mapNotNull { it.comfort }),
+                )
+            }
+        }
+
+        /**
+         * Which version to play next: the one used less often so far (balanced); a random pick on a tie,
+         * so the order is not predictable.
+         */
+        fun nextVariant(records: List<ResponseRecord>, preset: String, random: java.util.Random): String {
+            val e = records.filterIsInstance<ResponseRecord.Effect>().filter { it.preset == preset }
+            val o = e.count { it.variant == ORIGINAL }
+            val p = e.count { it.variant == PERSONALIZED }
+            return when {
+                o < p -> ORIGINAL
+                p < o -> PERSONALIZED
+                random.nextBoolean() -> ORIGINAL
+                else -> PERSONALIZED
+            }
+        }
     }
 }

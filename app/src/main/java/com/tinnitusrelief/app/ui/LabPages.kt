@@ -569,6 +569,7 @@ private fun recordTitle(r: ResponseRecord): String = when (r) {
     is ResponseRecord.Relief -> stringResource(R.string.rec_relief)
     is ResponseRecord.Ri -> stringResource(R.string.rec_ri)
     is ResponseRecord.Daily -> stringResource(R.string.rec_daily)
+    is ResponseRecord.Effect -> stringResource(R.string.ef_title)
 }
 
 @Composable
@@ -577,4 +578,5 @@ private fun recordDetail(r: ResponseRecord): String = when (r) {
     is ResponseRecord.Relief -> "${r.stimulus} · ${r.minutes} min · ${r.before} → ${r.after ?: "–"} → ${r.later ?: "–"}"
     is ResponseRecord.Ri -> formatHz(r.freqHz) + " · ${r.before} → ${r.after ?: "–"} · " + (r.riSeconds?.let { "${it}s" } ?: ">10 min")
     is ResponseRecord.Daily -> "${r.rating}/10"
+    is ResponseRecord.Effect -> effectDetail(r, stringResource(R.string.variant_original), stringResource(R.string.pz_personalized))
 }

@@ -17,7 +17,9 @@ class Biquad {
     private var a1 = 0.0; private var a2 = 0.0
     private var z1 = 0.0; private var z2 = 0.0
 
-    enum class Type { LOWPASS, HIGHPASS, BANDPASS, NOTCH, PEAK }
+    enum class Type { LOWPASS, HIGHPASS, BANDPASS, NOTCH, PEAK, LOWSHELF, HIGHSHELF }
+
+    /** For LOWSHELF / HIGHSHELF, [q] in [set] is the RBJ shelf slope S (1 = steepest without overshoot). */
 
     fun set(type: Type, sampleRate: Int, freq: Double, q: Double, gainDb: Double = 0.0): Biquad {
         val f = freq.coerceIn(1.0, sampleRate * 0.49)
@@ -33,6 +35,25 @@ class Biquad {
             Type.BANDPASS -> { nb0 = alpha; nb1 = 0.0; nb2 = -alpha; na0 = 1 + alpha; na1 = -2 * cw; na2 = 1 - alpha }
             Type.NOTCH -> { nb0 = 1.0; nb1 = -2 * cw; nb2 = 1.0; na0 = 1 + alpha; na1 = -2 * cw; na2 = 1 - alpha }
             Type.PEAK -> { nb0 = 1 + alpha * a; nb1 = -2 * cw; nb2 = 1 - alpha * a; na0 = 1 + alpha / a; na1 = -2 * cw; na2 = 1 - alpha / a }
+            Type.LOWSHELF, Type.HIGHSHELF -> {
+                val sa = sqrt(a)
+                val al = sin(w0) / 2 * sqrt((a + 1 / a) * (1 / q - 1) + 2)
+                if (type == Type.LOWSHELF) {
+                    nb0 = a * ((a + 1) - (a - 1) * cw + 2 * sa * al)
+                    nb1 = 2 * a * ((a - 1) - (a + 1) * cw)
+                    nb2 = a * ((a + 1) - (a - 1) * cw - 2 * sa * al)
+                    na0 = (a + 1) + (a - 1) * cw + 2 * sa * al
+                    na1 = -2 * ((a - 1) + (a + 1) * cw)
+                    na2 = (a + 1) + (a - 1) * cw - 2 * sa * al
+                } else {
+                    nb0 = a * ((a + 1) + (a - 1) * cw + 2 * sa * al)
+                    nb1 = -2 * a * ((a - 1) + (a + 1) * cw)
+                    nb2 = a * ((a + 1) + (a - 1) * cw - 2 * sa * al)
+                    na0 = (a + 1) - (a - 1) * cw + 2 * sa * al
+                    na1 = 2 * ((a - 1) - (a + 1) * cw)
+                    na2 = (a + 1) - (a - 1) * cw - 2 * sa * al
+                }
+            }
         }
         b0 = nb0 / na0; b1 = nb1 / na0; b2 = nb2 / na0; a1 = na1 / na0; a2 = na2 / na0
         return this

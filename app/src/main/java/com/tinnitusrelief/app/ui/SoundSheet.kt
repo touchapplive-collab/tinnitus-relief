@@ -169,6 +169,7 @@ private fun SoundRow(sound: Sound, inMix: Boolean, confirming: Boolean, onToggle
         SoundKind.BUILT_IN -> stringResource(if (sound.customized) R.string.kind_custom else R.string.kind_builtin)
         SoundKind.GENERATED -> stringResource(R.string.kind_generated)
         SoundKind.IMPORTED -> stringResource(R.string.kind_imported)
+        SoundKind.PERSONALIZED -> stringResource(R.string.kind_personalized)
     }
     Row(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onToggle)
@@ -180,7 +181,7 @@ private fun SoundRow(sound: Sound, inMix: Boolean, confirming: Boolean, onToggle
             Text(sound.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = extra.muted)
         }
-        if (sound.kind == SoundKind.IMPORTED) {
+        if (sound.kind == SoundKind.IMPORTED || sound.kind == SoundKind.PERSONALIZED) {
             if (confirming) {
                 TextButton(onClick = onDelete) { Text(stringResource(R.string.delete_confirm), color = extra.warn) }
             } else {
