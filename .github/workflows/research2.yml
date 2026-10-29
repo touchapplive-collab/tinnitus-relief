@@ -1,0 +1,60 @@
+name: Research details
+
+# Manual. Full text of the Newcastle spectral-ripple code (CC BY-NC 4.0, Yukhnovich et al.) and the
+# complete measured DFCRS gain curve, reported as annotations (nothing is committed or redistributed).
+on:
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg python3-numpy unzip jq >/dev/null
+          pip install --quiet openpyxl python-docx
+      - name: Download
+        run: |
+          mkdir -p ncl && cd ncl
+          curl -sSL https://ndownloader.figshare.com/files/49424731 -o code.zip
+          curl -sSL https://ndownloader.figshare.com/files/49425304 -o data.xlsx
+          curl -sSL https://ndownloader.figshare.com/files/49809513 -o README.txt
+          unzip -q -o code.zip -d x
+          python3 -c "import docx; d=docx.Document('x/Sound files notes.docx'); open('notes.txt','w').write('\n'.join(p.text for p in d.paragraphs) + '\n' + '\n'.join(' | '.join(c.text for c in r.cells) for t in d.tables for r in t.rows))"
+          python3 - <<'PY'
+          import openpyxl
+          wb = openpyxl.load_workbook('data.xlsx', read_only=True, data_only=True)
+          out = []
+          for ws in wb.worksheets:
+              rows = list(ws.iter_rows(values_only=True))
+              out.append(f"## sheet {ws.title}: {len(rows)} rows x {max((len(r) for r in rows), default=0)} cols")
+              for r in rows[:6]:
+                  out.append(" | ".join("" if v is None else str(v) for v in r))
+          open('data_summary.txt', 'w').write("\n".join(out))
+          PY
+      - name: README and notes
+        run: |
+          python3 tools/emit_annotations.py ncl/README.txt readme
+          python3 tools/emit_annotations.py ncl/notes.txt notes
+      - name: mod_ripple.m
+        run: python3 tools/emit_annotations.py ncl/x/mod_ripple.m mod_ripple
+      - name: Generate_Full_Experiment_Stimuli.m
+        run: python3 tools/emit_annotations.py ncl/x/Generate_Full_Experiment_Stimuli.m generate_full
+      - name: Hearing_Tin_Stim_Generation.m
+        run: python3 tools/emit_annotations.py ncl/x/Hearing_Tin_Stim_Generation.m hearing_tin
+      - name: helpers
+        run: |
+          for f in wind wind_ramp farpn phase_randomise; do python3 tools/emit_annotations.py ncl/x/$f.m $f 0 2; done
+      - name: data summary
+        run: python3 tools/emit_annotations.py ncl/data_summary.txt data 0 5
+      - name: DFCRS full gain curve
+        run: |
+          mkdir -p dfcrs && cd dfcrs
+          for f in mmc3 mmc4; do curl -sSL -o $f.mp3 "https://ars.els-cdn.com/content/image/1-s2.0-S2589537025006054-$f.mp3"; done
+          ffprobe -v error -show_entries format=duration,bit_rate:stream=sample_rate,channels -of default=nw=1 mmc4.mp3 > probe.txt
+          cd ..
+          python3 tools/analyze_dfcrs_audio.py dfcrs/mmc3.mp3 dfcrs/mmc4.mp3 dfcrs.md 4000
+          awk '/Gain curve/{p=1} p' dfcrs.md | awk -F'|' 'NR<=3 || ($2+0 >= 1500 && $2+0 <= 9000)' > curve.txt
+          cat dfcrs/probe.txt >> curve.txt
+          python3 tools/emit_annotations.py curve.txt dfcrs_curve

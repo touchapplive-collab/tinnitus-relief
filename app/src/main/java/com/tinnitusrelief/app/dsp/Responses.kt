@@ -4,8 +4,17 @@ package com.tinnitusrelief.app.dsp
 sealed class ResponseRecord {
     abstract val atMs: Long
 
-    /** Estimated tinnitus pitch. Subjective estimate, not a clinical measurement. */
-    data class Pitch(override val atMs: Long, val freqHz: Double, val method: String, val loudnessDbSl: Double?) : ResponseRecord()
+    /**
+     * Estimated tinnitus pitch. Subjective estimate, not a clinical measurement.
+     * [sure] = how sure the user was: 1 not sure, 2 fairly sure, 3 very sure (null = not asked).
+     */
+    data class Pitch(
+        override val atMs: Long,
+        val freqHz: Double,
+        val method: String,
+        val loudnessDbSl: Double?,
+        val sure: Int? = null,
+    ) : ResponseRecord()
 
     /** Before / after / later ratings around one listening session. */
     data class Relief(
@@ -47,8 +56,18 @@ sealed class ResponseRecord {
         val comfort: Int?,
     ) : ResponseRecord()
 
-    /** One optional check-in per day, for long-term tracking. */
-    data class Daily(override val atMs: Long, val day: String, val rating: Int) : ResponseRecord()
+    /**
+     * One optional check-in per day, for long-term tracking.
+     * [unmasked] = true when rated with no sound playing (the long-term outcome); null for older entries
+     * made before the question said so. [bother] = optional "how much did it bother you today" (0–10).
+     */
+    data class Daily(
+        override val atMs: Long,
+        val day: String,
+        val rating: Int,
+        val unmasked: Boolean? = null,
+        val bother: Int? = null,
+    ) : ResponseRecord()
 }
 
 /**
@@ -60,10 +79,10 @@ object ResponseCodec {
     fun encode(r: ResponseRecord): String {
         val m = linkedMapOf<String, Any?>()
         val type = when (r) {
-            is ResponseRecord.Pitch -> { m["f"] = r.freqHz; m["method"] = r.method; m["sl"] = r.loudnessDbSl; "PITCH" }
+            is ResponseRecord.Pitch -> { m["f"] = r.freqHz; m["method"] = r.method; m["sl"] = r.loudnessDbSl; m["sure"] = r.sure; "PITCH" }
             is ResponseRecord.Relief -> { m["stim"] = r.stimulus; m["min"] = r.minutes; m["before"] = r.before; m["after"] = r.after; m["later"] = r.later; m["laterMin"] = r.laterMinutes; "RELIEF" }
             is ResponseRecord.Ri -> { m["f"] = r.freqHz; m["sec"] = r.stimulusSeconds; m["extra"] = r.extraDb; m["before"] = r.before; m["after"] = r.after; m["outcome"] = r.outcome; m["ri"] = r.riSeconds; "RI" }
-            is ResponseRecord.Daily -> { m["day"] = r.day; m["rating"] = r.rating; "DAILY" }
+            is ResponseRecord.Daily -> { m["day"] = r.day; m["rating"] = r.rating; m["unmasked"] = r.unmasked; m["bother"] = r.bother; "DAILY" }
             is ResponseRecord.Effect -> {
                 m["preset"] = r.preset; m["variant"] = r.variant; m["min"] = r.minutes; m["before"] = r.before
                 m["during"] = r.during; m["after"] = r.after; m["comfort"] = r.comfort; "EFFECT"
@@ -81,7 +100,7 @@ object ResponseCodec {
         }.toMap()
         val at = m.getValue("at").toLong()
         when (parts[0]) {
-            "PITCH" -> ResponseRecord.Pitch(at, m.getValue("f").toDouble(), m["method"] ?: "", m["sl"]?.toDouble())
+            "PITCH" -> ResponseRecord.Pitch(at, m.getValue("f").toDouble(), m["method"] ?: "", m["sl"]?.toDouble(), m["sure"]?.toInt())
             "RELIEF" -> ResponseRecord.Relief(
                 at, m["stim"] ?: "", m.getValue("min").toInt(), m.getValue("before").toInt(),
                 m["after"]?.toInt(), m["later"]?.toInt(), m["laterMin"]?.toInt(),
@@ -90,7 +109,9 @@ object ResponseCodec {
                 at, m.getValue("f").toDouble(), m.getValue("sec").toInt(), m["extra"]?.toInt() ?: 0,
                 m.getValue("before").toInt(), m["after"]?.toInt(), m["outcome"] ?: "", m["ri"]?.toInt(),
             )
-            "DAILY" -> ResponseRecord.Daily(at, m.getValue("day"), m.getValue("rating").toInt())
+            "DAILY" -> ResponseRecord.Daily(
+                at, m.getValue("day"), m.getValue("rating").toInt(), m["unmasked"]?.toBooleanStrictOrNull(), m["bother"]?.toInt(),
+            )
             "EFFECT" -> ResponseRecord.Effect(
                 at, m.getValue("preset"), m.getValue("variant"), m.getValue("min").toInt(), m["before"]?.toInt(),
                 m["during"]?.toInt(), m["after"]?.toInt(), m["comfort"]?.toInt(),
