@@ -118,17 +118,27 @@ object RippleGenerator {
                 // exact phase at each block start (no drift), recursive rotation inside the block
                 val theta = w * i + phi
                 var c = cos(theta); var s = sin(theta)
-                val e0 = if (inBand) env[b] else 1.0
-                val de = if (inBand) (env[b + 1] - env[b]) / BLOCK else 0.0
-                var e = e0
                 val end = minOf(i + BLOCK, n)
-                while (i < end) {
-                    acc[i] += amp * e * s
-                    val c2 = c * cw - s * sw
-                    s = s * cw + c * sw
-                    c = c2
-                    e += de
-                    i++
+                if (inBand) {
+                    var e = env[b]
+                    val de = (env[b + 1] - env[b]) / BLOCK
+                    while (i < end) {
+                        acc[i] += amp * e * s
+                        val c2 = c * cw - s * sw
+                        s = s * cw + c * sw
+                        c = c2
+                        e += de
+                        i++
+                    }
+                } else {
+                    // unmodulated harmonic (An = 1): same arithmetic without the envelope
+                    while (i < end) {
+                        acc[i] += amp * s
+                        val c2 = c * cw - s * sw
+                        s = s * cw + c * sw
+                        c = c2
+                        i++
+                    }
                 }
             }
         }

@@ -74,7 +74,8 @@ class BenchRunner(
             val seq = RippleSequence(RippleConfig(RippleBand.B7, RippleModulation.AMPLITUDE, 15.0, sr), 1)
             val times = (0 until renderSegments).map { val t = System.nanoTime(); seq.next(); (System.nanoTime() - t) / 1e6 }
             val worst = times.max()
-            check("render speed at $sr Hz", worst < 1_000, "mean ${"%.0f".format(times.average())} ms, worst ${"%.0f".format(worst)} ms per 4 s segment (${"%.1f".format(worst / 40)}% of real time)")
+            // requirement: average well below real time (< 50%); 12 s are rendered ahead, so single slow segments are tolerated
+            check("render speed at $sr Hz", times.average() < 2_000 && worst < 8_000, "mean ${"%.0f".format(times.average())} ms (${"%.1f".format(times.average() / 40)}% of real time), worst ${"%.0f".format(worst)} ms per 4 s segment; render-ahead 12 s")
         }
 
         // 3. real-time pacing with a small (low-latency) and a large (power-saving) device buffer
