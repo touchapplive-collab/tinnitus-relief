@@ -91,3 +91,16 @@ LIMITATION: phone output is uncalibrated. Thresholds and levels are personal and
 - One optional daily rating; no notifications are sent, to avoid drawing attention to the tinnitus.
 - Everything is stored locally in `files/responses.tsv`.
 - These are self-reports, not THI scores. They track personal trends; they are not clinical outcomes.
+
+## Sound personalization (Relief → Personalize sound)
+
+This is a **listening-preference** tool, not a treatment. No publication defines an optimal masker spectrum
+for a person; the feature only helps the listener find the balance they find most comfortable and masking.
+
+| Item | Status |
+|---|---|
+| FFT analysis (Welch, Hann, 4096, 1/6-octave), regions >30 dB below the strongest are not adjusted | ENGINEERING |
+| 4 broad regions: low shelf 200 Hz, peaks 700 Hz / 2.5 kHz (Q 0.7), high shelf 7 kHz; −8…+6 dB | ENGINEERING |
+| Loudness matching by A-weighted power of the analysed spectrum (IEC 61672 A-weighting) | ENGINEERING (A-weighting is a standard approximation of loudness, not a loudness model) |
+| Search: broad directions (tilt, air, depth, presence), steps 4 → 2 → 1 dB, 5–8 comparisons, "no difference" retires a direction, original recommended without ≥2 decisive answers or ≥1.5 dB change | ENGINEERING |
+| Original vs personalized sessions: balanced random order, blinded until the end | Standard bias-reduction practice; self-reports only |

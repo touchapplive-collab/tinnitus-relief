@@ -26,6 +26,15 @@ Potpuno offline aplikacija za ublažavanje tinitusa zvukom, sa odvojenom eksperi
   - Pauza kad se izvuku slušalice.
   - Wake lock postoji samo dok zvuk svira.
 
+### Personalizacija zvuka („Pronađi svoj savršeni zvuk")
+- Relief → **Personalizuj zvuk**: radi sa svakim zvukom (tuš, priroda, šumovi, tvoji fajlovi).
+- FFT analiza na telefonu pronalazi u kojim delovima spektra zvuk zaista ima energije; samo ti delovi se menjaju.
+- 5–8 poređenja „Zvuk A / Zvuk B" (Bolji je A / Bolji je B / Nema razlike), uz Nazad, Preskoči i nastavak kasnije.
+- Obe verzije su izjednačene po glasnoći (A-ponderisano), pa se poredi boja zvuka, a ne jačina. Prelazi su glatki (150 ms).
+- Široki, blagi ekvilajzer u 4 oblasti, ograničen na −8…+6 dB. Bez jasne sklonosti aplikacija preporučuje original.
+- Rezultat („Moj tuš") se čuva kao podešavanje, bez kopije audio fajla; original ostaje netaknut. Na Relief ekranu: Original | Moj tuš.
+- Laboratorija → Testovi → **Original ili personalizovano**: slepe sesije uravnoteženim nasumičnim redom, ocene pre / dok svira / posle / prijatnost.
+
 ### Acoustic Lab (eksperimentalno, podrazumevano isključeno)
 - **Uključivanje:** zahteva izričitu potvrdu.
 - **Visina tinitusa:**
@@ -104,7 +113,7 @@ Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md
    - zdravstvena aplikacija mora imati jasnu izjavu da ne postavlja dijagnozu i ne leči.
 
 ## Testovi
-- **Lokalno (već pokrenuto):** 37 testova, svi prolaze. Rezultati su u [docs/test-results.txt](docs/test-results.txt).
+- **Lokalno (već pokrenuto):** 58 testova, svi prolaze. Rezultati su u [docs/test-results.txt](docs/test-results.txt).
 - **Na GitHub-u:** `gradlew testDebugUnitTest` se pokreće pre svakog builda.
 
 | Oblast | Šta se proverava |
@@ -118,6 +127,8 @@ Detalji o tome šta je naučno potvrđeno: **[docs/RESEARCH.md](docs/RESEARCH.md
 | Mikser | tačnost pojačanja, limiter (nikad ne seče), fade i crossfade bez skokova, ducking, najviše 3 kanala, ograničenje sloja B, sloj B tih dok se ne uključi, 3 minuta mešanja bez NaN-a i preko plafona |
 | Petlje | bešavan prelaz petlje i normalizacija; svih 7 ugrađenih OGG fajlova proveren alatom `tools/check_loops.py` |
 | Prekidi | audio focus: poziv → pauza → automatski nastavak; navigacija → utišavanje; druga muzika → pauza bez nastavka; korisnik pauzirao za vreme poziva → nema nastavka |
+| Personalizacija | FFT tačnost na poznatim sinusima, boje šuma (beli +3 dB/okt, roze ravan, braon opada), analiza ne pretpostavlja energiju svuda, odziv filtera, izjednačenje glasnoće (±0,05 dB), EQ u realnom vremenu, promena bez klika, 5–8 poređenja, kretanje ka preferenci simuliranog slušaoca, granice pojačanja, „nema razlike" → original, nazad/preskoči/determinizam, nastavak sesije, A/B prelaz bez klika i automatsko zaustavljanje |
+| Vođeno određivanje | tonovi do 5 s, ulaz/izlaz 150 ms, trenutno prebacivanje bez klika, ponavljanje, brzo dodirivanje, kompenzacija glasnoće samo utišava |
 | Podaci | zapis/čitanje odgovora, oštećeni redovi se preskaču, kodovanje miksa i preseta, odbijanje neispravnih vrednosti podešavanja |
 
 **Šta nije testirano (traži pravi telefon):**
