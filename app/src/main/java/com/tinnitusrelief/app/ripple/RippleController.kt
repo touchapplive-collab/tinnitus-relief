@@ -143,7 +143,7 @@ class RippleController(
     fun startPlan(startTomorrow: Boolean) = update {
         it.copy(plan = StudyPlan.create(today() + if (startTomorrow) 1 else 0, SecureRandom(), System.currentTimeMillis()))
     }
-    fun unblind() = update { s -> s.copy(plan = s.plan?.copy(unblindedAtMs = s.plan.unblindedAtMs ?: System.currentTimeMillis())) }
+    fun unblind() = update { s -> s.copy(plan = s.plan?.let { p -> p.copy(unblindedAtMs = p.unblindedAtMs ?: System.currentTimeMillis()) }) }
     fun endPlan() = update { it.copy(plan = null) }
 
     /** Imports calibration records (one per line). Returns how many valid records were added. */
