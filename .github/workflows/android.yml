@@ -32,9 +32,8 @@ jobs:
         run: |
           for f in test.log build.log; do
             [ -f "$f" ] || continue
-            grep -E "^e: |error:|FAILED|What went wrong|Could not|> " "$f" | head -60 | while IFS= read -r line; do
-              echo "::error::${line//%/%25}"
-            done
+            msg=$( { grep -E "^e: " "$f" | head -40; grep -A12 "What went wrong" "$f" | head -30; grep -E "AAPT|error:" "$f" | head -20; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' )
+            [ -n "$msg" ] && echo "::error title=$f::$msg"
           done
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk TinnitusRelief.apk
