@@ -1,5 +1,20 @@
 package com.tinnitusrelief.app.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,7 +48,6 @@ import com.tinnitusrelief.app.AppGraph
 import com.tinnitusrelief.app.R
 import com.tinnitusrelief.app.dsp.ResponseRecord
 import com.tinnitusrelief.app.dsp.ThreeAfcPitch
-import com.tinnitusrelief.app.dsp.ToneSequenceVoice
 import com.tinnitusrelief.app.engine.FrequencyMatchingEngine
 import com.tinnitusrelief.app.engine.ReliefTestFlow
 import com.tinnitusrelief.app.engine.RiTestFlow
@@ -62,39 +76,102 @@ private fun MatchingSession(graph: AppGraph, title: String, onBack: () -> Unit, 
     }
 }
 
+/** Live state of the comparison player (tone id being heard, 0..1 progress), polled while visible. */
 @Composable
-private fun AbcButtons(enabled: Boolean, playing: Int, onPick: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        for (i in 0..2) {
-            val scheme = MaterialTheme.colorScheme
-            Surface(
-                onClick = { onPick(i) },
-                enabled = enabled,
-                shape = RoundedCornerShape(18.dp),
-                color = if (playing == i) scheme.primary else scheme.surfaceContainerHigh,
-                contentColor = if (playing == i) scheme.onPrimary else scheme.onSurface,
-                modifier = Modifier.weight(1f).height(72.dp),
+private fun rememberPlayback(m: FrequencyMatchingEngine): Pair<Int, Float> {
+    val state by produceState(-1 to 0f, m) {
+        while (true) {
+            value = m.playingId to m.playingProgress
+            delay(50)
+        }
+    }
+    return state
+}
+
+/** One comparison tone: tap to listen (tap again to stop). The highlighted tile is the one you would select. */
+@Composable
+private fun ToneTile(
+    letter: String,
+    playing: Boolean,
+    progress: Float,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val label = stringResource(R.string.tone_label, letter)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(116.dp).semantics { contentDescription = label },
+        shape = RoundedCornerShape(22.dp),
+        color = if (selected) scheme.primaryContainer else scheme.surfaceContainerLowest,
+        contentColor = if (selected) scheme.onPrimaryContainer else scheme.onSurface,
+        border = if (selected) BorderStroke(2.dp, scheme.primary) else null,
+    ) {
+        Box {
+            Column(
+                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Text("ABC"[i].toString(), style = MaterialTheme.typography.headlineSmall)
-                }
+                Text(letter, style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(6.dp))
+                Icon(
+                    if (playing) ReliefIcons.Stop else ReliefIcons.Play,
+                    contentDescription = null,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            if (playing) {
+                Box(
+                    Modifier.align(Alignment.BottomStart)
+                        .padding(horizontal = 18.dp, vertical = 14.dp)
+                        .fillMaxWidth(progress.coerceIn(0.02f, 1f))
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(scheme.primary),
+                )
             }
         }
     }
 }
 
+/** A, B, C tiles plus the separate "Select this tone" action. */
 @Composable
-private fun rememberSequenceIndex(seq: ToneSequenceVoice?): Pair<Int, Boolean> {
-    var idx by remember { mutableIntStateOf(-1) }
-    var done by remember { mutableStateOf(true) }
-    LaunchedEffect(seq) {
-        if (seq == null) return@LaunchedEffect
-        done = false
-        while (!seq.finished) { idx = seq.currentIndex; delay(40) }
-        idx = -1; done = true
+private fun ToneChoice(
+    playingId: Int,
+    progress: Float,
+    candidate: Int?,
+    onListen: (Int) -> Unit,
+    onSelect: (Int) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        for (i in 0..2) {
+            ToneTile(
+                letter = LETTERS[i],
+                playing = playingId == i,
+                progress = if (playingId == i) progress else 0f,
+                selected = candidate == i,
+                onClick = { onListen(i) },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
-    return idx to done
+    Button(
+        onClick = { candidate?.let(onSelect) },
+        enabled = candidate != null,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+    ) {
+        Text(
+            if (candidate == null) stringResource(R.string.afc_select_this)
+            else stringResource(R.string.afc_select, LETTERS[candidate])
+        )
+    }
 }
+
+private val LETTERS = listOf("A", "B", "C")
+private const val FINE_TUNE_ID = 10
 
 @Composable
 fun GuidedPitchPage(graph: AppGraph, onBack: () -> Unit) {
@@ -104,23 +181,37 @@ fun GuidedPitchPage(graph: AppGraph, onBack: () -> Unit) {
     var phase by remember { mutableStateOf(ThreeAfcPitch.Phase.COARSE) }
     var triple by remember { mutableStateOf(doubleArrayOf()) }
     var trial by remember { mutableIntStateOf(1) }
-    var seq by remember { mutableStateOf<ToneSequenceVoice?>(null) }
-    var heard by remember { mutableStateOf(false) }
+    var candidate by remember { mutableStateOf<Int?>(null) }
     var freq by remember { mutableDoubleStateOf(1000.0) }
     var threshold by remember { mutableDoubleStateOf(-60.0) }
     var loudTrial by remember { mutableIntStateOf(0) }
-    val (playingIdx, seqDone) = rememberSequenceIndex(seq)
+    var resumeKey by remember { mutableIntStateOf(0) }
+    val (playingId, progress) = rememberPlayback(m)
+
+    LaunchedEffect(Unit) { m.restartAfc(); triple = m.afc.triple }
+    // Leaving the app stops every tone; coming back restores the current step silently.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { m.silence() }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { resumeKey++ }
+
+    /** Listening: tap plays the tone (or stops it if it is the one playing) and marks it as the candidate. */
+    fun listen(i: Int, play: () -> Unit) {
+        if (playingId == i) m.stopCompare() else play()
+        candidate = i
+    }
 
     MatchingSession(graph, stringResource(R.string.pitch_guided), onBack) {
         when (step) {
             0 -> {
-                LaunchedEffect(Unit) { m.restartAfc(); triple = m.afc.triple; m.playSteady(1000.0) }
+                LaunchedEffect(resumeKey) { m.playSteady(1000.0, compensated = true) }
                 Body(stringResource(R.string.afc_level_body))
                 LabeledSlider(stringResource(R.string.afc_level), "%.0f dB".format(toneDb), toneDb.toFloat(),
                     { m.setToneDb(it.toDouble()) }, FrequencyMatchingEngine.MIN_TONE_DB.toFloat()..FrequencyMatchingEngine.MAX_TONE_DB.toFloat())
-                Button(onClick = { m.silence(); step = 1 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.afc_start)) }
+                Button(onClick = { m.silence(); step = 1 }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Text(stringResource(R.string.afc_start))
+                }
             }
             1 -> {
+                LaunchedEffect(resumeKey) { m.prepareCompare() }
                 Eyebrow(stringResource(when (phase) {
                     ThreeAfcPitch.Phase.COARSE -> R.string.afc_phase_coarse
                     ThreeAfcPitch.Phase.FINE -> R.string.afc_phase_fine
@@ -128,69 +219,101 @@ fun GuidedPitchPage(graph: AppGraph, onBack: () -> Unit) {
                 }))
                 Text(stringResource(R.string.afc_trial, trial), style = MaterialTheme.typography.headlineSmall)
                 Body(stringResource(R.string.afc_instructions))
-                Button(onClick = { seq = m.playTriple(triple); heard = true }, enabled = seqDone, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(if (heard) R.string.afc_play_again else R.string.afc_play))
-                }
-                AbcButtons(enabled = heard && seqDone, playing = playingIdx) { i ->
-                    m.afc.choose(i)
-                    heard = false
-                    trial++
-                    phase = m.afc.phase
-                    triple = m.afc.triple
-                    if (m.afc.phase == ThreeAfcPitch.Phase.DONE) { freq = m.afc.result ?: triple[1]; step = 2 }
-                }
+                ToneChoice(
+                    playingId = playingId,
+                    progress = progress,
+                    candidate = candidate,
+                    onListen = { i -> listen(i) { m.compare(i, triple[i]) } },
+                    onSelect = { i ->
+                        m.stopCompare()
+                        m.afc.choose(i)
+                        candidate = null
+                        trial++
+                        phase = m.afc.phase
+                        triple = m.afc.triple
+                        if (m.afc.phase == ThreeAfcPitch.Phase.DONE) { freq = m.afc.result ?: triple[1]; step = 2 }
+                    },
+                )
             }
             2 -> {
-                LaunchedEffect(Unit) { m.playSteady(freq) }
+                LaunchedEffect(resumeKey) { m.prepareCompare() }
+                val fine = playingId == FINE_TUNE_ID
                 Eyebrow(stringResource(R.string.afc_result))
-                Text(formatHz(freq), style = MaterialTheme.typography.displaySmall)
+                Text("${freq.roundToInt()} Hz", style = MaterialTheme.typography.displaySmall)
                 Body(stringResource(R.string.afc_finetune_body))
+                LogFrequencySlider(freq, m.minHz, m.maxHz) { f -> freq = f; m.retune(FINE_TUNE_ID, f) }
                 FineTuneRow { oct ->
-                    freq = (freq * 2.0.pow(oct)).coerceIn(125.0, m.maxHz)
-                    m.setSteady(freq, toneDb)
+                    freq = (freq * 2.0.pow(oct)).coerceIn(m.minHz, m.maxHz)
+                    m.retune(FINE_TUNE_ID, freq)
                 }
-                Button(onClick = { graph.savePitch(freq, "3afc"); m.silence(); step = 5 }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { if (fine) m.stopCompare() else m.compare(FINE_TUNE_ID, freq) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    Icon(if (fine) ReliefIcons.Stop else ReliefIcons.Play, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(if (fine) R.string.afc_stop else R.string.afc_listen))
+                }
+                Button(onClick = { m.silence(); graph.savePitch(freq, "3afc"); step = 5 }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text(stringResource(R.string.pitch_save))
                 }
-                OutlinedButton(onClick = { graph.savePitch(freq, "3afc"); step = 3 }, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { m.silence(); graph.savePitch(freq, "3afc"); step = 3 }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.loud_also))
                 }
             }
             3 -> {
-                LaunchedEffect(Unit) { m.playSteady(freq, threshold) }
+                LaunchedEffect(resumeKey) { m.playSteady(freq, threshold, compensated = true) }
                 Body(stringResource(R.string.loud_threshold_body))
                 LabeledSlider(stringResource(R.string.afc_level), "%.0f dB".format(threshold), threshold.toFloat(),
                     { threshold = it.toDouble(); m.setSteady(freq, threshold) }, -80f..-20f)
-                Button(onClick = { m.silence(); m.startLoudness(threshold); step = 4 }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { m.silence(); m.startLoudness(threshold); candidate = null; step = 4 }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text(stringResource(R.string.loud_threshold_done))
                 }
             }
             4 -> {
+                LaunchedEffect(resumeKey) { m.prepareCompare() }
                 val l = m.loudness
                 if (l != null) {
                     Text(stringResource(R.string.afc_trial, loudTrial + 1), style = MaterialTheme.typography.headlineSmall)
                     Body(stringResource(R.string.loud_instructions))
-                    Button(onClick = { seq = m.playTriple(DoubleArray(3) { freq }, l.levels); heard = true }, enabled = seqDone, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(if (heard) R.string.afc_play_again else R.string.afc_play))
-                    }
-                    AbcButtons(enabled = heard && seqDone, playing = playingIdx) { i ->
-                        l.choose(i)
-                        heard = false
-                        loudTrial++
-                        if (l.done) { graph.savePitch(freq, "3afc+loudness", l.sensationLevelDb); step = 5 }
-                    }
+                    ToneChoice(
+                        playingId = playingId,
+                        progress = progress,
+                        candidate = candidate,
+                        onListen = { i -> listen(i) { m.compare(i, freq, l.levels[i]) } },
+                        onSelect = { i ->
+                            m.stopCompare()
+                            l.choose(i)
+                            candidate = null
+                            loudTrial++
+                            if (l.done) { m.silence(); graph.savePitch(freq, "3afc+loudness", l.sensationLevelDb); step = 5 }
+                        },
+                    )
                 }
             }
             else -> {
                 Eyebrow(stringResource(R.string.afc_saved))
-                Text(formatHz(freq), style = MaterialTheme.typography.displaySmall)
+                Text("${freq.roundToInt()} Hz", style = MaterialTheme.typography.displaySmall)
                 m.loudness?.takeIf { it.done }?.let {
                     Body(stringResource(R.string.loud_result, it.sensationLevelDb))
                 }
-                Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.done)) }
+                Button(onClick = onBack, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(stringResource(R.string.done)) }
             }
         }
     }
+}
+
+/** Logarithmic frequency slider (equal distance = equal musical interval). */
+@Composable
+private fun LogFrequencySlider(freq: Double, lo: Double, hi: Double, onChange: (Double) -> Unit) {
+    fun toPos(f: Double) = (ln(f / lo) / ln(hi / lo)).toFloat()
+    fun fromPos(p: Float) = lo * (hi / lo).pow(p.toDouble())
+    LabeledSlider(
+        stringResource(R.string.manual_frequency),
+        "${lo.roundToInt()}–${(hi / 1000).roundToInt()} kHz",
+        toPos(freq),
+        { p -> onChange(fromPos(p).coerceIn(lo, hi)) },
+    )
 }
 
 @Composable

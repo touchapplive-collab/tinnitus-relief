@@ -88,16 +88,16 @@
     <string name="afc_phase_fine">Sužavanje</string>
     <string name="afc_phase_octave">Provera oktave</string>
     <string name="afc_trial">Korak %1$d</string>
-    <string name="afc_instructions">Čućeš tri tona: A, B i C. Izaberi onaj koji je po visini najbliži tvom tinitusu. Slušaj koliko god puta želiš.</string>
+    <string name="afc_instructions">Dodirni A, B ili C da čuješ ton. Svaki traje do 5 sekundi i možeš ga pustiti koliko god puta želiš. Zatim izaberi onaj koji je po visini najbliži tvom tinitusu.</string>
     <string name="afc_play">Pusti A · B · C</string>
     <string name="afc_play_again">Pusti ponovo</string>
     <string name="afc_result">Procenjena visina</string>
-    <string name="afc_finetune_body">Fino podesi dok ton ne bude kao tvoj tinitus. Dugmićima ½× i 2× proveri da li si u pravoj oktavi.</string>
+    <string name="afc_finetune_body">Dodirni Slušaj i pomeraj klizač dok ton ne bude kao tvoj tinitus. Dugmićima ½× i 2× proveri oktavu.</string>
     <string name="afc_saved">Sačuvano</string>
     <string name="loud_also">Sačuvaj i odredi glasnoću</string>
     <string name="loud_threshold_body">Smanjuj ton dok ga jedva ne čuješ. To je tvoj lični referentni nivo.</string>
     <string name="loud_threshold_done">Jedva ga čujem</string>
-    <string name="loud_instructions">Tri tona na tvojoj visini, različite glasnoće. Izaberi onaj koji je po glasnoći najbliži tvom tinitusu.</string>
+    <string name="loud_instructions">Dodirni A, B ili C da čuješ tri tona na tvojoj visini, različite glasnoće. Zatim izaberi onaj koji je po glasnoći najbliži tvom tinitusu.</string>
     <string name="loud_result">Glasnoća: oko %1$.0f dB iznad tvog praga (nekalibrisano).</string>
     <string name="manual_body">Ton svira neprekidno. Pomeraj klizač dok ne zazvuči kao tvoj tinitus, pa fino podesi.</string>
     <string name="manual_frequency">Frekvencija</string>
@@ -193,4 +193,9 @@
     <string name="greet_evening">Dobro veče</string>
     <string name="greet_night">Laku noć</string>
     <string name="timer_none">Isključen</string>
+    <string name="afc_select_this">Izaberi ovaj ton</string>
+    <string name="afc_select">Izaberi ton %1$s</string>
+    <string name="afc_listen">Slušaj</string>
+    <string name="afc_stop">Zaustavi</string>
+    <string name="tone_label">Ton %1$s</string>
 </resources>

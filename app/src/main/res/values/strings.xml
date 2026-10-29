@@ -86,16 +86,16 @@
     <string name="afc_phase_fine">Narrowing down</string>
     <string name="afc_phase_octave">Octave check</string>
     <string name="afc_trial">Step %1$d</string>
-    <string name="afc_instructions">You will hear three tones: A, B and C. Pick the one closest in pitch to your tinnitus. Listen as often as you like.</string>
+    <string name="afc_instructions">Tap A, B or C to listen. Each tone plays for up to 5 seconds, as often as you like. Then select the one closest in pitch to your tinnitus.</string>
     <string name="afc_play">Play A · B · C</string>
     <string name="afc_play_again">Play again</string>
     <string name="afc_result">Estimated pitch</string>
-    <string name="afc_finetune_body">Fine-tune until the tone matches your tinnitus. Use ½× and 2× to check that you are in the right octave.</string>
+    <string name="afc_finetune_body">Tap Listen and move the slider until the tone matches your tinnitus. Use ½× and 2× to check the octave.</string>
     <string name="afc_saved">Saved</string>
     <string name="loud_also">Save and match loudness</string>
     <string name="loud_threshold_body">Lower this tone until you can only just hear it. This is your personal reference level.</string>
     <string name="loud_threshold_done">I can only just hear it</string>
-    <string name="loud_instructions">Three tones at your pitch with different loudness. Pick the one closest in loudness to your tinnitus.</string>
+    <string name="loud_instructions">Tap A, B or C to hear three tones at your pitch with different loudness. Then select the one closest in loudness to your tinnitus.</string>
     <string name="loud_result">Loudness match: about %1$.0f dB above your own threshold (uncalibrated).</string>
     <string name="manual_body">The tone plays continuously. Move the slider until it sounds like your tinnitus, then fine-tune.</string>
     <string name="manual_frequency">Frequency</string>
@@ -195,4 +195,9 @@
     <string name="greet_evening">Good evening</string>
     <string name="greet_night">Good night</string>
     <string name="timer_none">Off</string>
+    <string name="afc_select_this">Select this tone</string>
+    <string name="afc_select">Select tone %1$s</string>
+    <string name="afc_listen">Listen</string>
+    <string name="afc_stop">Stop</string>
+    <string name="tone_label">Tone %1$s</string>
 </resources>
