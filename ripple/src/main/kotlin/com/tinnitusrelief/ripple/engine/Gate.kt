@@ -24,10 +24,14 @@ enum class Blocker {
     HEARING_PROFILE_LOCKED, HEARING_PROFILE_INVALID,
     LOCKED_SYMPTOMS, LOCKED_WORSENING, POST_SESSION_REPORT_MISSING,
     BREAK_TOO_SHORT, DAILY_CAP_REACHED, NOTHING_TO_RESUME,
+    // study plan (therapy layer)
+    NO_PLAN, PLAN_NOT_STARTED, PLAN_WASHOUT, PLAN_FINISHED,
 }
 
 /** Only [RippleGate] can create an allowed result; the engine refuses to start without one. */
 class GateResult internal constructor(
+    /** True for a silent rehearsal: never audible, never counted as therapy. */
+    val rehearsal: Boolean = false,
     val blockers: List<Blocker>,
     val prescription: Prescription?,
     /** Longest this session may run (audio time). */
@@ -110,6 +114,6 @@ object RippleGate {
         }
 
         val startCap = minOf(limits.maxLevelDb, ledger.lastConfirmedLevelDb ?: limits.firstSessionLevelDb)
-        return GateResult(b.distinct(), prescription, allowedMs.coerceAtLeast(0), resumedFrom, req, startCap)
+        return GateResult(false, b.distinct(), prescription, allowedMs.coerceAtLeast(0), resumedFrom, req, startCap)
     }
 }

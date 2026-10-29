@@ -22,7 +22,7 @@ interface Transport {
     fun pause()
 }
 
-enum class LabActivity { SESSION, MATCHING, RI_TEST, RELIEF_TEST, PERSONALIZE, EFFECT }
+enum class LabActivity { SESSION, MATCHING, RI_TEST, RELIEF_TEST, PERSONALIZE, EFFECT, RIPPLE }
 
 data class LabState(val activity: LabActivity, val label: String, val totalMs: Long, val endsAtElapsed: Long?)
 

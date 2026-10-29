@@ -49,7 +49,7 @@ import com.tinnitusrelief.app.engine.LabActivity
 import com.tinnitusrelief.app.ui.theme.LocalReliefColors
 import kotlin.math.roundToInt
 
-enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, ENGINE, RI, RELIEF, HISTORY, EFFECT }
+enum class LabPage { MAIN, PITCH_GUIDED, PITCH_MANUAL, ENGINE, RI, RELIEF, HISTORY, EFFECT, RIPPLE }
 
 @Composable
 fun LabScreen(graph: AppGraph) {
@@ -68,6 +68,7 @@ fun LabScreen(graph: AppGraph) {
         LabPage.RELIEF -> ReliefTestPage(graph, back)
         LabPage.HISTORY -> HistoryPage(graph, back)
         LabPage.EFFECT -> EffectPage(graph, back)
+        LabPage.RIPPLE -> RipplePage(graph, back, openPitch = { page = LabPage.PITCH_GUIDED })
     }
 }
 
@@ -169,6 +170,11 @@ private fun LabMain(graph: AppGraph, open: (LabPage) -> Unit) {
                 icon = ReliefIcons.Wave,
                 onClick = { open(LabPage.ENGINE) },
             )
+        }
+
+        ListHeader(stringResource(R.string.rp_title))
+        RowGroup {
+            ListRow(stringResource(R.string.rp_title), subtitle = stringResource(R.string.rp_row_sub), icon = ReliefIcons.Wave, onClick = { open(LabPage.RIPPLE) })
         }
 
         ListHeader(stringResource(R.string.lab_tests))

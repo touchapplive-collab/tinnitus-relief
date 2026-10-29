@@ -78,6 +78,8 @@ class AppGraph(private val context: Context) {
     val processing = AcousticProcessingEngine(library, engine.sampleRate)
     val matching = FrequencyMatchingEngine(sessions, engine.sampleRate)
     val tracker = LocalResponseTracker(context)
+    /** Spectral-ripple therapy layer (experimental; audible sessions disabled in this build). */
+    val ripple = com.tinnitusrelief.app.ripple.RippleController(context, scope, engine.sampleRate, tracker, { _pitch.value }, { _isPlaying.value })
     val reliefTest = ReliefTestFlow(scope, sessions, tracker, ::startLabFor, { modeLabel(_lab.value.mode) }, ::mixTitle)
     val riTest = RiTestFlow(scope, sessions, tracker, engine.sampleRate)
     val personalize = PersonalizeFlow(
@@ -135,6 +137,7 @@ class AppGraph(private val context: Context) {
             val saved = MixCodec.decode(p[SettingsStore.MIX]).filter { library.find(it.soundId) != null }
             masker.applyMix(saved.ifEmpty { listOf(MixEntry(SoundLibrary.SHOWER, 0.8f)) })
             tracker.load()
+            ripple.load()
             _ready.value = true
         }
     }
@@ -232,6 +235,7 @@ class AppGraph(private val context: Context) {
         if (playing) startTimer() else {
             cancelTimer()
             sessions.onTransportStopped()
+            ripple.onTransportStopped()
         }
     }
 
