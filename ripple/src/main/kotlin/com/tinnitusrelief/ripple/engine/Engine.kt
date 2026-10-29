@@ -61,12 +61,13 @@ class InlineSource(config: RippleConfig, seed: Long) : SegmentSource {
 
 /**
  * Renders segments ahead on a background thread (spec section 3). The processing thread only copies samples.
- * Capacity 2 = the next segment is always being prepared while the current one plays.
+ * Capacity 3 = up to 12 s of rendered audio waits ahead of playback, so a segment may take longer than its
+ * own 4 s to render (e.g. a busy or throttled phone) without a gap, as long as the average keeps up.
  */
 class RenderAheadSource(
     config: RippleConfig,
     seed: Long,
-    capacity: Int = 2,
+    capacity: Int = 3,
     /** Test hook: extra delay (ms) before each segment is published, to simulate a slow device. */
     private val testDelayMs: (Int) -> Long = { 0L },
 ) : SegmentSource {

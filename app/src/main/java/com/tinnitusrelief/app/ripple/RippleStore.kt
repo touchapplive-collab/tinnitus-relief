@@ -7,7 +7,7 @@ import java.io.File
 
 /** Private files for the spectral-ripple therapy layer. Existing app data is not touched. */
 class RippleStore(context: Context) {
-    private val dir = File(context.filesDir, "ripple").apply { mkdirs() }
+    private val dir = File(context.filesDir, "ripple")
     private val stateFile = File(dir, "state.txt")
     private val ledgerFile = File(dir, "ledger.tsv")
     private val rehearsalFile = File(dir, "rehearsal-ledger.tsv")
@@ -22,9 +22,13 @@ class RippleStore(context: Context) {
 
     private fun read(f: File): String? = if (f.exists()) runCatching { f.readText() }.getOrNull() else null
 
+    /** Atomic write. A storage failure is logged and never crashes the app (the state stays in memory). */
     @Synchronized private fun write(f: File, text: String) {
-        val tmp = File(f.parentFile, f.name + ".tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+        runCatching {
+            f.parentFile?.mkdirs()
+            val tmp = File(f.parentFile, f.name + ".tmp")
+            tmp.writeText(text)
+            if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+        }.onFailure { android.util.Log.e("RippleStore", "could not save ${f.name}", it) }
     }
 }
