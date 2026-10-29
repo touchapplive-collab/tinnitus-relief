@@ -1,4 +1,4 @@
-package com.tinnitusrelief.app.dsp.ripple
+package com.tinnitusrelief.ripple
 
 import kotlin.math.abs
 import kotlin.math.log2

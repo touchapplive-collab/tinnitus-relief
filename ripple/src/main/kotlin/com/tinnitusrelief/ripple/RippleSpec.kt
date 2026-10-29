@@ -1,4 +1,4 @@
-package com.tinnitusrelief.app.dsp.ripple
+package com.tinnitusrelief.ripple
 
 // =====================================================================================================
 //  EXPERIMENTAL spectral-ripple (cross-frequency decorrelation) stimulus — Gate G1 (signal only).

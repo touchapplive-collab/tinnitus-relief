@@ -1,4 +1,4 @@
-package com.tinnitusrelief.app.dsp.ripple
+package com.tinnitusrelief.ripple
 
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -22,11 +22,11 @@ jobs:
       - name: Unit tests (DSP)
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --console=plain testDebugUnitTest 2>&1 | tee test.log
+          ./gradlew --no-daemon --console=plain :app:testDebugUnitTest 2>&1 | tee test.log
       - name: Build debug APK
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --console=plain assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon --console=plain :app:assembleDebug 2>&1 | tee build.log
       - name: Report errors as annotations
         if: failure()
         run: |

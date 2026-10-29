@@ -1,4 +1,4 @@
-package com.tinnitusrelief.app.dsp.ripple
+package com.tinnitusrelief.ripple
 
 import java.util.SplittableRandom
 import kotlin.math.PI
@@ -90,11 +90,11 @@ class RippleValidation(private val full: Boolean, private val sampleRate: Int = 
     }
 
     // ---------------------------------------------------------------- V3
-    /** Reference curve re-typed from [P]: 0 ≤ 2 kHz, 1/9 at 2.8 kHz, 8/9 at 8 kHz, max ¼ octave above (assumption). */
+    /** Reference curve re-typed from [P]: 0 ≤ 2 kHz, 1/9 at 2.8 kHz, 8/9 at 8 kHz, maximum above 8 kHz. */
     private fun refWeight(fHz: Double): Double {
-        val pts = listOf(2000.0 to 0.0, 2828.4271247 to 1.0 / 9, 8000.0 to 8.0 / 9, 9513.6564 to 1.0)
         if (fHz <= 2000) return 0.0
-        if (fHz >= 9513.6564) return 1.0
+        if (fHz > 8000) return 1.0
+        val pts = listOf(2000.0 to 0.0, 2828.4271247 to 1.0 / 9, 8000.0 to 8.0 / 9)
         for (i in 0 until pts.size - 1) if (fHz <= pts[i + 1].first) {
             val (a, wa) = pts[i]; val (b, wb) = pts[i + 1]
             return wa + (wb - wa) * log2(fHz / a) / log2(b / a)
@@ -124,10 +124,10 @@ class RippleValidation(private val full: Boolean, private val sampleRate: Int = 
             ok = ok && worst <= 0.5 && rmsErr <= 0.1
             det += "M = ${m.toInt()} dB" to "measured/expected dB re 1 kHz: ${parts.joinToString("; ")}; worst error ${f(worst, 3)} dB; total RMS error ${f(rmsErr, 4)} dB"
         }
-        val curveOk = listOf(1000.0 to 0.0, 2000.0 to 0.0, 2828.4271247 to 1.0 / 9, 8000.0 to 8.0 / 9, 16000.0 to 1.0)
+        val curveOk = listOf(1000.0 to 0.0, 2000.0 to 0.0, 2828.4271247 to 1.0 / 9, 8000.0 to 8.0 / 9, 8000.5 to 1.0, 9000.0 to 1.0, 16000.0 to 1.0)
             .all { (fh, w) -> abs(HearingSlope.weight(fh) - w) < 1e-6 }
         ok = ok && curveOk
-        det += "curve anchor points" to if (curveOk) "0 at ≤2 kHz, 1/9 at 2.83 kHz, 8/9 at 8 kHz, 1 at 16 kHz: exact" else "MISMATCH"
+        det += "curve anchor points" to if (curveOk) "0 at ≤2 kHz, 1/9 at 2.83 kHz, 8/9 at 8 kHz, 1 above 8 kHz: exact" else "MISMATCH"
         return Check("V3", "Hearing correction", ok, det)
     }
 

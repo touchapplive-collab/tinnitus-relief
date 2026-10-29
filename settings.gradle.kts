@@ -14,3 +14,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "TinnitusRelief"
 include(":app")
+// Experimental, isolated research modules (not part of the production app):
+include(":ripple")
+include(":ripplebench")
