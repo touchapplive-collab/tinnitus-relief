@@ -63,6 +63,10 @@ Source code and data were found in the Newcastle repository (doi:10.25405/data.n
 
 A protocol-faithful port is therefore possible. The licence allows it for non-commercial use with attribution and the same licence for the derived code; commercial use would need permission from Newcastle University.
 
+## Spectral ripple — implementation status
+
+See [SPECTRAL-RIPPLE.md](SPECTRAL-RIPPLE.md) for the integrated implementation, tests, differences from the trial and the steps before any listening.
+
 ## Other modes
 
 | Mode | Published | Assumed / experimental |

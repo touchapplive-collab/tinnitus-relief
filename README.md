@@ -35,6 +35,12 @@ Potpuno offline aplikacija za ublažavanje tinitusa zvukom, sa odvojenom eksperi
 - Rezultat („Moj tuš") se čuva kao podešavanje, bez kopije audio fajla; original ostaje netaknut. Na Relief ekranu: Original | Moj tuš.
 - Laboratorija → Testovi → **Original ili personalizovano**: slepe sesije uravnoteženim nasumičnim redom, ocene pre / dok svira / posle / prijatnost.
 
+### Spektralno talasanje (Lab → Spektralno talasanje, eksperimentalno)
+- Zvuk iz objavljenog ispitivanja (Yukhnovich i sar., 2025), implementiran samo prema članku.
+- **Zvuk je isključen u svim verzijama** dok se ne urade akustično merenje telefona i slušalica, pregled audiologa i tvoje odobrenje. Softverski testovi ne mogu da utvrde bezbednu jačinu zvuka.
+- Postoje bezbednosna pitanja, profil sluha (30/45 dB zaključani), provera čujnosti opsega, slepi plan od 2 × 6 nedelja sa pauzama od 3 nedelje, sesije sa tajmerom, ocene i simptomi, zaključavanja, rezultati i proba bez zvuka.
+- Detalji, testovi i koraci pre prvog slušanja: **[docs/SPECTRAL-RIPPLE.md](docs/SPECTRAL-RIPPLE.md)**.
+
 ### Acoustic Lab (eksperimentalno, podrazumevano isključeno)
 - **Uključivanje:** zahteva izričitu potvrdu.
 - **Visina tinitusa:**
