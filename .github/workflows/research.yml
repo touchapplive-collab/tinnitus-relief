@@ -1,0 +1,80 @@
+name: Research downloads
+
+# Manual. Fetches public research materials that this development environment cannot reach and reports
+# what they contain as annotations (nothing is committed).
+on:
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg python3-numpy unzip file jq >/dev/null
+      - name: Newcastle repository (figshare API)
+        run: |
+          mkdir -p ncl && cd ncl
+          for api in https://api.figshare.com/v2/articles/27109693 https://data.ncl.ac.uk/api/v2/articles/27109693; do
+            curl -sSL "$api" -o meta.json || true
+            if jq -e .id meta.json >/dev/null 2>&1; then break; fi
+          done
+          summary=$(jq -r '"title: \(.title)\nlicense: \(.license.name // "none")\npublished: \(.published_date)\ntype: \(.defined_type_name)\nfiles:\n" + ([.files[] | "  \(.name)  \(.size) bytes  \(.download_url)"] | join("\n"))' meta.json 2>&1 | head -60)
+          echo "::notice title=ncl-meta::$(echo "$summary" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          jq -r '.files[] | select(.size < 300000000) | .download_url + " " + .name' meta.json 2>/dev/null | while read url name; do
+            curl -sSL "$url" -o "$name" || true
+          done
+          ls -la
+      - name: Newcastle contents
+        run: |
+          cd ncl
+          out=""
+          for f in *; do
+            [ "$f" = meta.json ] && continue
+            out="$out$f: $(file -b "$f" | cut -c1-70)\n"
+            case "$f" in *.zip) out="$out$(unzip -l "$f" | head -80)\n"; mkdir -p x && unzip -q -o "$f" -d x ;; esac
+          done
+          echo "::notice title=ncl-files::$(printf "$out" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+      - name: Newcastle code excerpts
+        run: |
+          cd ncl
+          find . -type f \( -name "*.m" -o -name "*.py" -o -name "*.R" -o -name "*.txt" -o -name "*.md" -o -name "*.json" \) ! -name meta.json | head -40 > list.txt || true
+          n=0
+          while read f; do
+            n=$((n+1)); [ $n -gt 8 ] && break
+            body=$(head -c 6000 "$f" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=code $(basename "$f")::$body"
+          done < list.txt
+          echo "::notice title=ncl-filelist::$(cat list.txt | awk '{printf "%s%%0A", $0}')"
+      - name: DFCRS example audio (alternative hosts)
+        run: |
+          mkdir -p dfcrs && cd dfcrs
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+          out=""
+          for f in mmc3 mmc4 mmc5; do
+            for u in \
+              "https://ars.els-cdn.com/content/image/1-s2.0-S2589537025006054-$f.mp3" \
+              "https://europepmc.org/articles/PMC12766481/bin/$f.mp3" \
+              "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12766481/bin/$f.mp3" \
+              "https://pmc.ncbi.nlm.nih.gov/articles/instance/12766481/bin/$f.mp3" \
+              "https://www.thelancet.com/cms/10.1016/j.eclinm.2025.103671/attachment/$f.mp3"; do
+              curl -sSL -A "$UA" -o tmp "$u" || true
+              t=$(file -b tmp | cut -c1-40); s=$(stat -c %s tmp 2>/dev/null || echo 0)
+              out="$out$f <- $u : $s bytes, $t\n"
+              case "$t" in *Audio*|*MPEG*|*ID3*) mv tmp $f.mp3; break;; esac
+            done
+          done
+          echo "::notice title=dfcrs-downloads::$(printf "$out" | awk '{printf "%s%%0A", $0}')"
+          ls -la
+      - name: DFCRS analysis
+        run: |
+          if [ -f dfcrs/mmc3.mp3 ] && [ -f dfcrs/mmc4.mp3 ]; then
+            python3 tools/analyze_dfcrs_audio.py dfcrs/mmc3.mp3 dfcrs/mmc4.mp3 dfcrs.md 4000
+            echo "::notice title=dfcrs-report::$(head -45 dfcrs.md | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          else
+            echo "::notice title=dfcrs-report::example audio not obtained"
+          fi
+          if [ -f dfcrs/mmc3.mp3 ] && [ -f dfcrs/mmc5.mp3 ]; then
+            python3 tools/analyze_dfcrs_audio.py dfcrs/mmc3.mp3 dfcrs/mmc5.mp3 hfem.md 4000
+            echo "::notice title=hfem-report::$(head -30 hfem.md | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          fi
