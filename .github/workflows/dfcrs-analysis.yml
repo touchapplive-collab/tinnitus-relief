@@ -18,12 +18,24 @@ jobs:
         run: |
           UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
           base=https://pmc.ncbi.nlm.nih.gov/articles/instance/12766481/bin
-          for f in mmc2 mmc3 mmc4 mmc5; do curl -fL -A "$UA" -o $f.mp3 $base/$f.mp3; done
-          ls -la *.mp3
+          for f in mmc2 mmc3 mmc4 mmc5; do curl -fL -A "$UA" -o $f.mp3 $base/$f.mp3 || true; done
+          info=$(for f in *.mp3; do echo "$f: $(stat -c %s $f) bytes, $(file -b $f | cut -c1-80)"; done | awk '{printf "%s%%0A", $0}')
+          echo "::notice title=downloads::$info"
       - name: Analyse UM vs DFCRS (4000 Hz)
-        run: python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc4.mp3 dfcrs_report.md 4000
+        continue-on-error: true
+        run: |
+          python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc4.mp3 dfcrs_report.md 4000 2>&1 | tail -5
+          echo "::notice title=dfcrs::$(head -40 dfcrs_report.md | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
       - name: Analyse UM vs HFEM (check of the method on a known 6–9 kHz +10 dB boost)
-        run: python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc5.mp3 hfem_report.md 4000
+        continue-on-error: true
+        run: |
+          python3 tools/analyze_dfcrs_audio.py mmc3.mp3 mmc5.mp3 hfem_report.md 4000 2>&1 | tail -5
+          echo "::notice title=hfem::$(head -40 hfem_report.md | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+      - name: Report failures
+        if: always()
+        run: |
+          for f in *.mp3; do ffprobe -v error -show_entries format=duration,bit_rate -of csv=p=0 "$f" 2>&1 | sed "s/^/$f: /"; done > probe.txt || true
+          echo "::notice title=probe::$(cat probe.txt | awk '{printf "%s%%0A", $0}')"
       - uses: actions/upload-artifact@v4
         with:
           name: dfcrs-analysis
