@@ -1,6 +1,6 @@
 # Phase 1 — Spectral-ripple (cross-frequency decorrelation) generator: technical specification
 
-Status: **G1 approved (rev. 2, 29 Oct 2026)**. Rev. 2 corrects V6, V7 and the hearing-safety section. G1 adds only the pure-DSP generator (`dsp/ripple`) and its tests; nothing in the app references it, and there is no UI and no listening exposure.
+Status: **G3 (rev. 3, 29 Oct 2026)**. Rev. 3: hearing correction reaches its maximum above 8 kHz (decision T1); the generator and engine now live in the isolated `:ripple` module, and a silent bench app `:ripplebench` exists. Earlier: **G1 approved (rev. 2)**. Rev. 2 corrects V6, V7 and the hearing-safety section. G1 adds only the pure-DSP generator (`dsp/ripple`) and its tests; nothing in the app references it, and there is no UI and no listening exposure.
 Scope: an experimental signal generator reproducing the stimulus of Yukhnovich et al. (2025), kept separate
 from the Shower masker, personalization and the DFCRS-inspired Lab mode, none of which change.
 
@@ -80,7 +80,7 @@ The table is stored as data with a citation. A unit test checks all 17 rows agai
 ### 2.4 Hearing-slope correction [P, Fig. 1 / Methods]
 
 - Gain in dB = M · w(f), where M ∈ {0, 15, 30, 45} dB is chosen by the user.
-- w(f) is 0 up to 2 kHz, 1/9 at 2.8 kHz, linear in log-frequency up to 8/9 at 8 kHz, and 1 above 8 kHz.
+- w(f) is 0 up to 2 kHz, 1/9 at 2.8 kHz, linear in log-frequency up to 8/9 at 8 kHz, and 1 (the full maximum) for every frequency above 8 kHz, as [P] states and the trial code does (rev. 3).
 - It is applied per harmonic, as a smooth function of frequency.
 - Default M = 0.
 - After the correction, total RMS is renormalised (section 4), so the correction redistributes energy across frequencies rather than adding level.
@@ -92,6 +92,10 @@ The user matches their tinnitus to one of 17 tones (1–16 kHz in ¼-octave step
 The app's existing Guided Match gives a continuous frequency. That value is rounded to the nearest of the 17 frequencies, and the existing pitch-confidence rating is shown next to it. Low confidence blocks the generator (see S9).
 
 ## 3. Implementation architecture (proposed)
+
+As built in G3: module `:ripple` (pure Kotlin/JVM, package `com.tinnitusrelief.ripple`) holds the generator and `engine/` (gate, safety rules, ledger, engine, pacer). `:app` does not depend on it. `:ripplebench` is a separate silent APK.
+
+Originally proposed layout:
 
 ```
 dsp/ripple/                      pure Kotlin, no Android, unit-testable on the JVM
@@ -189,7 +193,7 @@ Digital RMS, peak limits and percentages of device volume do not determine sound
 
 1. **Starting phase.** [P] specifies random starting phases. The deposited trial-generation code appears to use a different setting. Which one the trial files actually used cannot be decided from public sources. The choice changes the peak level (crest factor) a lot, but barely changes the spectrum. This spec follows [P].
 2. **Phase-variant depth.** [P] eq. 3 gives a phase swing of 0 to 2π. The deposited code differs. This is not relevant if only the amplitude variant is built.
-3. **Hearing-correction shape.** [P] describes a smooth curve; the repository differs in detail. This spec follows [P].
+3. **Hearing-correction shape.** [P] describes a smooth curve; the repository applies a half-octave staircase. This spec follows [P]. Above 8 kHz both agree on the full maximum (rev. 3).
 4. **Band centre c.** [P] defines it as the "logarithmic centre" without a formula. This spec uses the geometric centre of the band edges. Any reasonable definition differs by a negligible constant.
 5. **Level.** No level is given in [P] beyond "≤ 60% device volume". There is no evidence on dose-response by level.
 6. **Codec.** The trial files were distributed in a compressed format, which may have changed the content above about 15 kHz. We generate uncompressed audio.

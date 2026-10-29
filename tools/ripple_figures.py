@@ -64,18 +64,18 @@ a.set_title('V10: peaks over two 60 min renders (900 segments each)',fontsize=10
 fig.tight_layout(); fig.savefig(f'{O}/fig5_peaks.png'); plt.close()
 # 6 hearing curve
 def w(f):
-    pts=[(2000,0),(2828.427,1/9),(8000,8/9),(9513.66,1)]
+    pts=[(2000,0),(2828.427,1/9),(8000,8/9)]
     if f<=2000: return 0
-    if f>=9513.66: return 1
+    if f>8000: return 1
     for (a1,w1),(b1,w2) in zip(pts,pts[1:]):
         if f<=b1: return w1+(w2-w1)*np.log2(f/a1)/np.log2(b1/a1)
 fs=np.geomspace(1000,16000,300)
 fig,a=plt.subplots(figsize=(6,3.3))
 for M,col in zip([15,30,45],['#9bb5bd',acc2,acc]):
     a.plot(fs/1000,[M*w(f) for f in fs],color=col,label=f'M = {M} dB')
-a.plot([2,2.828,8],[0,45/9,45*8/9],'k.',ms=6,label='[P] anchor points (M = 45)')
+a.plot([2,2.828,8],[0,45/9,45*8/9],'k.',ms=6,label='[P] anchor points (M = 45); maximum above 8 kHz')
 a.set_xscale('log'); a.set_xticks([1,2,4,8,16]); a.set_xticklabels(['1','2','4','8','16'])
 a.set_xlabel('frequency (kHz)'); a.set_ylabel('added gain (dB)'); a.legend(frameon=False,fontsize=8)
-a.set_title('Hearing-slope correction (measured within 0.001 dB, V3)',fontsize=10)
+a.set_title('Hearing-slope correction, rev. 3 (30/45 dB locked in the engine)',fontsize=10)
 fig.tight_layout(); fig.savefig(f'{O}/fig6_hearing.png'); plt.close()
 print('ok')
